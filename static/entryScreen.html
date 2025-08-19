@@ -9,48 +9,45 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
-    <div id="auth-container">
-        <details id="alarm-collapsible" class="alarm-collapsible">
-            <summary class="alarm-header-collapsible">
-                <button onclick="showAddScheduleForm()" class="add-schedule-btn">
-                    <i class="fas fa-plus"></i> 일정
-                </button>
-                <button onclick="showQuickNoteForm()" class="add-qicknote-btn">
-                    <i class="fas fa-sticky-note"></i> 퀵노트
-                </button>
-                <div class="user-info"></div>
-                
-                <h3>알람</h3>
-                <div class="alarm-header-actions">
-                    <span class="toggle-icon">▼&nbsp;&nbsp;&nbsp;</span>
-                    <button onclick="clearAllAlarms()" class="clear-all-btn">
-                        <i class="fas fa-trash-alt"></i>삭제
-                    </button>
-                    
-                </div>
-            </summary>
-            <div class="alarm-container">
-                <div id="alarm-list"><div class="no-alarms">새로운 알람이 없습니다.</div></div>
-            </div>
-        </details>
-        <details class="controls-collapsible">
-            <summary class="controls-header">
-                <h3>&nbsp;&nbsp;&nbsp;기능<span id="filtered-users-display"></span></h3>
-                <span class="toggle-icon">▼&nbsp;&nbsp;&nbsp;</span>
-            </summary>
-            <div class="controls">
+    <!-- 좌측 메뉴 토글 버튼 -->
+    <div id="left-menu-toggle" class="left-menu-toggle">
+        <i class="fas fa-bars"></i>
+    </div>
+
+    <!-- 좌측 메뉴 -->
+    <div id="left-menu" class="left-menu">
+        <div class="left-menu-header">
+            <h3>기능 메뉴</h3>
+            <button id="left-menu-close" class="left-menu-close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="left-menu-content">
+            <!-- controls-collapsible 내용을 좌측 메뉴로 이동 -->
+            <div class="left-menu-section">
+                <h4>검색</h4>
                 <div class="search-container">
                     <input class="search-container-input" type="text" id="search-input" placeholder="검색어를 입력하세요...">
                     <button class="search-container-btn" onclick="searchSchedules()">
                         <i class="fas fa-search"></i> 검색
                     </button>
                 </div>
-                <div class="user-filter-container">
-                    <div class="user-filter-header">&nbsp;&nbsp;&nbsp;사용자 필터</div><div id="user-checkboxes"><div class="user-checkbox">
-                <input type="checkbox" id="user-all" value="all" onchange="toggleAllUsersFilter(this.checked)" checked="">
-                <label for="user-all">All</label>
-                </div></div>
             </div>
+            
+            <div class="left-menu-section">
+                <h4>사용자 필터</h4>
+                <div class="user-filter-container">
+                    <div id="user-checkboxes">
+                        <div class="user-checkbox">
+                            <input type="checkbox" id="user-all" value="all" onchange="toggleAllUsersFilter(this.checked)" checked="">
+                            <label for="user-all">All</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="left-menu-section">
+                <h4>뷰 옵션</h4>
                 <button id="quickMemo-view-btn" class="view-btn">
                     <i class="fas fa-eye"></i> 퀵노트 보기
                 </button>
@@ -62,37 +59,68 @@
                 </button>
                 <button id="week-view-btn" class="view-btn">
                     <i class="fas fa-calendar-week"></i> 주간 보기
-                </button>   
+                </button>
                 <button class="file-view-btn" onclick="toggleFileView()">
                     <i class="fas fa-paperclip"></i> 첨부파일 보기
-                </button> 
+                </button>
+            </div>
+            
+            <div class="left-menu-section">
+                <h4>기타 기능</h4>
                 <button class="user-filter-header" onclick="toggleCompletedFilter()">
                     <i class="fas fa-eye-slash"></i> 완료 일정 숨기기
                 </button>
-                
                 <button onclick="exportToExcel()" class="excel-export-btn">
                     <i class="fas fa-file-excel"></i> 엑셀로 출력
                 </button>
                 <button onclick="logout()" class="logout-btn">
                     <i class="fas fa-sign-out-alt"></i> 로그아웃
                 </button>
-                
             </div>
-        </details>
-        
+        </div>
+    </div>
 
-        <div class="schedule-container" id="schedule-container">
-            <table class="schedule-table">
-                <thead class="schedule-table-header">
-                    <tr>
-                        <th>날짜</th>
-                        <th>프로젝트</th>
-                        <th>작성자</th>
-                        <th>제목</th>
-                    </tr>
-                </thead>
-                <tbody id="schedule-body"></tbody>
-            </table>
+    <!-- 메인 콘텐츠 영역 -->
+    <div id="main-content" class="main-content">
+        <div id="auth-container">
+            <!-- 상단의 alarm-collapsible은 그대로 유지 -->
+            <details id="alarm-collapsible" class="alarm-collapsible">
+                <summary class="alarm-header-collapsible">
+                    <button onclick="showAddScheduleForm()" class="add-schedule-btn">
+                        <i class="fas fa-plus"></i> 일정
+                    </button>
+                    <button onclick="showQuickNoteForm()" class="add-qicknote-btn">
+                        <i class="fas fa-sticky-note"></i> 퀵노트
+                    </button>
+                    <div class="user-info"></div>
+                    
+                    <h3>알람</h3>
+                    <div class="alarm-header-actions">
+                        <span class="toggle-icon">▼&nbsp;&nbsp;&nbsp;</span>
+                        <button onclick="clearAllAlarms()" class="clear-all-btn">
+                            <i class="fas fa-trash-alt"></i>삭제
+                        </button>
+                        
+                    </div>
+                </summary>
+                <div class="alarm-container">
+                    <div id="alarm-list"><div class="no-alarms">새로운 알람이 없습니다.</div></div>
+                </div>
+            </details>
+
+            <div class="schedule-container" id="schedule-container">
+                <table class="schedule-table">
+                    <thead class="schedule-table-header">
+                        <tr>
+                            <th>날짜</th>
+                            <th>프로젝트</th>
+                            <th>작성자</th>
+                            <th>제목</th>
+                        </tr>
+                    </thead>
+                    <tbody id="schedule-body"></tbody>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -640,6 +668,80 @@
             }
         }
 
+        // 좌측 메뉴 토글 기능
+        function toggleLeftMenu() {
+            const leftMenu = document.getElementById('left-menu');
+            const mainContent = document.getElementById('main-content');
+            const isOpen = leftMenu.classList.contains('open');
+            
+            if (isOpen) {
+                closeLeftMenu();
+            } else {
+                openLeftMenu();
+            }
+        }
+
+        function openLeftMenu() {
+            const leftMenu = document.getElementById('left-menu');
+            const mainContent = document.getElementById('main-content');
+            
+            leftMenu.classList.add('open');
+            mainContent.classList.add('menu-open');
+            
+            // 메뉴 상태를 로컬 스토리지에 저장
+            localStorage.setItem('leftMenuOpen', 'true');
+        }
+
+        function closeLeftMenu() {
+            const leftMenu = document.getElementById('left-menu');
+            const mainContent = document.getElementById('main-content');
+            
+            leftMenu.classList.remove('open');
+            mainContent.classList.remove('menu-open');
+            
+            // 메뉴 상태를 로컬 스토리지에 저장
+            localStorage.setItem('leftMenuOpen', 'false');
+        }
+
+        // 좌측 메뉴 이벤트 리스너 설정
+        function setupLeftMenu() {
+            const leftMenuToggle = document.getElementById('left-menu-toggle');
+            const leftMenuClose = document.getElementById('left-menu-close');
+            
+            if (leftMenuToggle) {
+                leftMenuToggle.addEventListener('click', toggleLeftMenu);
+            }
+            
+            if (leftMenuClose) {
+                leftMenuClose.addEventListener('click', closeLeftMenu);
+            }
+            
+            // ESC 키로 메뉴 닫기
+            document.addEventListener('keydown', function(event) {
+                if (event.key === 'Escape') {
+                    closeLeftMenu();
+                }
+            });
+            
+            // 메뉴 외부 클릭 시 닫기
+            document.addEventListener('click', function(event) {
+                const leftMenu = document.getElementById('left-menu');
+                const leftMenuToggle = document.getElementById('left-menu-toggle');
+                
+                if (leftMenu && leftMenuToggle && 
+                    !leftMenu.contains(event.target) && 
+                    !leftMenuToggle.contains(event.target)) {
+                    closeLeftMenu();
+                }
+            });
+            
+            // 저장된 메뉴 상태 복원
+            const savedMenuState = localStorage.getItem('leftMenuOpen');
+            if (savedMenuState === 'true') {
+                openLeftMenu();
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             // 현재 페이지를 로컬 스토리지에 저장
             const currentPath = window.location.pathname;
@@ -677,6 +779,9 @@
                 updateFilteredUsersDisplay();
                 console.log("필터 자동 저장 설정 완료 - 화면 ID:", getScreenId());
             }, 1000);
+
+            // 좌측 메뉴 이벤트 리스너 설정
+            setupLeftMenu();
         });
     </script>
     </div>
