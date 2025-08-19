@@ -1,0 +1,84 @@
+# 계획 수립 - 0008
+## 계획 일시: 2024년 현재
+## 계획 주제: 개인일정 추가 버튼 기능 구현
+
+### 국지적 목표
+사용자가 "개인일정 추가" 버튼을 클릭했을 때 개인일정 체크박스를 자동으로 체크한 후 일정을 추가하는 기능 구현
+
+### 단계별 계획
+
+#### 1단계: 현재 상태 분석 ✅ (완료)
+- [x] `static/js/main.js` 파일에서 관련 코드 구조 파악
+- [x] 개인일정 체크박스 위치 및 ID 확인: `schedule-individual`
+- [x] 기존 버튼 구조 분석: `type="sub_pivate"` (기능 없음)
+- [x] 폼 제출 이벤트 핸들러 확인: `handleAddSchedule()`
+
+#### 2단계: 버튼 구조 수정 ✅ (완료)
+- [x] 개인일정 추가 버튼 타입 변경: `type="sub_pivate"` → `type="button"`
+- [x] 클릭 이벤트 핸들러 추가: `onclick="addPrivateSchedule()"`
+
+#### 3단계: 기능 함수 구현 ✅ (완료)
+- [x] `addPrivateSchedule()` 함수 작성
+- [x] 개인일정 체크박스 자동 체크 기능
+- [x] 폼 제출 이벤트 트리거 기능
+
+#### 4단계: 문서화 및 기록 ✅ (완료)
+- [x] `_history/0009.txt` 작업 기록 업데이트
+- [x] `_analysis/analysis_0012.txt` 분석 정보 업데이트
+- [x] `_plan/plan0008.txt` 계획 수립 및 진행 상황 기록
+
+### 기술적 구현 사항
+
+#### 구현된 기능
+1. **버튼 수정**:
+   ```html
+   <!-- 이전 -->
+   <button type="sub_pivate">개인일정 추가</button>
+   
+   <!-- 변경 후 -->
+   <button type="button" onclick="addPrivateSchedule()">개인일정 추가</button>
+   ```
+
+2. **함수 구현**:
+   ```javascript
+   function addPrivateSchedule() {
+       // 개인일정 체크박스를 체크
+       const individualCheckbox = document.getElementById('schedule-individual');
+       if (individualCheckbox) {
+           individualCheckbox.checked = true;
+       }
+       
+       // 폼을 제출
+       const form = document.getElementById('internal-add-schedule-form');
+       if (form) {
+           const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
+           form.dispatchEvent(submitEvent);
+       }
+   }
+   ```
+
+### 예상 효과
+1. **사용자 편의성 향상**: 개인일정 추가 시 체크박스를 수동으로 체크할 필요 없음
+2. **UI 일관성**: 공개일정/개인일정 두 가지 방법 모두 명확한 버튼으로 제공
+3. **워크플로우 단순화**: 클릭 한 번으로 개인일정 모드 활성화 및 제출
+
+### 테스트 계획
+1. **기본 기능 테스트**:
+   - 개인일정 추가 버튼 클릭
+   - 체크박스 자동 체크 확인
+   - 폼 제출 및 개인일정 저장 확인
+
+2. **기존 기능 회귀 테스트**:
+   - 공개일정 추가 버튼 정상 동작 확인
+   - 수동 체크박스 조작 정상 동작 확인
+
+### 완료 상태
+**✅ 모든 단계 완료**
+- 요구사항에 따른 기능 구현 완료
+- 코드 수정 완료
+- 문서화 완료
+
+### 후속 개선 방안
+1. **시각적 피드백**: 버튼 클릭 시 체크박스 하이라이트
+2. **키보드 접근성**: 단축키 지원 (예: Ctrl+P)
+3. **상태 표시**: 개인일정 모드 활성화 시 시각적 인디케이터 

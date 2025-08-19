@@ -1,0 +1,119 @@
+# 데이터베이스 스키마 분석
+
+## 데이터 모델
+
+### 1. User (users 테이블)
+```sql
+CREATE TABLE users (
+    id INTEGER PRIMARY KEY,
+    username STRING UNIQUE,
+    name STRING,
+    hashed_password STRING,
+    is_active BOOLEAN DEFAULT TRUE
+);
+CREATE INDEX ix_users_id ON users(id);
+CREATE INDEX ix_users_username ON users(username);
+```
+
+### 2. Schedule (schedules 테이블)
+```sql
+CREATE TABLE schedules (
+    id INTEGER PRIMARY KEY,
+    title STRING,
+    content TEXT,
+    date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    due_time DATETIME,
+    alarm_time DATETIME,
+    priority ENUM('긴급','급함','곧임박','일반','거북이'),
+    is_completed BOOLEAN DEFAULT FALSE,
+    owner_id INTEGER REFERENCES users(id),
+    memo TEXT,
+    memo_author_id INTEGER REFERENCES users(id),
+    memo_updated_at DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX ix_schedules_id ON schedules(id);
+CREATE INDEX ix_schedules_title ON schedules(title);
+```
+
+### 3. ScheduleShare (schedule_shares 테이블)
+```sql
+CREATE TABLE schedule_shares (
+    id INTEGER PRIMARY KEY,
+    schedule_id INTEGER REFERENCES schedules(id),
+    shared_with_id INTEGER REFERENCES users(id),
+    memo TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX ix_schedule_shares_id ON schedule_shares(id);
+```
+
+### 4. Attachment (attachments 테이블)
+```sql
+CREATE TABLE attachments (
+    id INTEGER PRIMARY KEY,
+    schedule_id INTEGER REFERENCES schedules(id),
+    file_name STRING,
+    file_path STRING,
+    file_type STRING,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX ix_attachments_id ON attachments(id);
+```
+
+## 관계 다이어그램
+```
+User
+ ├── schedules (1:N) -> Schedule (owner_id)
+ ├── memo_schedules (1:N) -> Schedule (memo_author_id)
+ └── shared_schedules (1:N) -> ScheduleShare (shared_with_id)
+
+Schedule
+ ├── owner (N:1) -> User
+ ├── memo_author (N:1) -> User
+ ├── shares (1:N) -> ScheduleShare
+ └── attachments (1:N) -> Attachment
+
+ScheduleShare
+ ├── schedule (N:1) -> Schedule
+ └── shared_with (N:1) -> User
+
+Attachment
+ └── schedule (N:1) -> Schedule
+```
+
+## 특이사항
+
+### 1. 우선순위 시스템
+- PriorityLevel Enum 사용
+- 5단계 우선순위: 긴급, 급함, 곧임박, 일반, 거북이
+
+### 2. 일정 공유 시스템
+- 일정 소유자와 공유 대상자 구분
+- 공유 시 메모 추가 가능
+- 일정별 다중 공유 지원
+
+### 3. 메모 시스템
+- 일정에 메모 추가 가능
+- 메모 작성자 추적
+- 메모 수정 시간 기록
+
+### 4. 파일 첨부 시스템
+- 일정별 다중 파일 첨부 지원
+- 파일 메타데이터 관리
+  - 파일명
+  - 파일 경로
+  - 파일 타입
+
+### 5. 시간 관리
+- 일정 생성/수정 시간 자동 기록
+- 알람 시간 설정 가능
+- 마감 시간 관리
+
+## 개선 고려사항
+1. 파일 크기 제한 설정 필요
+2. 파일 타입 제한 검토
+3. 공유 권한 레벨 추가 검토
+4. 반복 일정 지원 검토
+5. 알람 이력 관리 추가 검토 

@@ -1,0 +1,103 @@
+# 인증 시스템 분석
+
+## 핵심 컴포넌트
+
+### 1. 인증 설정 (core/auth.py)
+- JWT 기반 인증
+  - SECRET_KEY (환경 변수로 관리 필요)
+  - ALGORITHM: HS256
+  - 토큰 만료 시간: 30분
+- 비밀번호 해싱: bcrypt
+- OAuth2 인증 스키마 사용
+
+### 2. 인증 엔드포인트 (routers/auth.py)
+1. 회원가입: POST /register
+2. 로그인: POST /token
+3. 토큰 갱신: POST /token/refresh
+4. 사용자 목록: GET /users/
+5. 내 정보 조회: GET /users/me
+
+## 주요 기능
+
+### 1. 사용자 등록
+```python
+@router.post("/register", response_model=UserSchema)
+- 사용자명 중복 검사
+- 비밀번호 해싱
+- 사용자 정보 저장
+- 트랜잭션 관리
+```
+
+### 2. 로그인 처리
+```python
+@router.post("/token", response_model=Token)
+- 사용자 검증
+- 비밀번호 확인
+- JWT 토큰 생성
+- 만료 시간 설정
+```
+
+### 3. 토큰 관리
+```python
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None)
+- JWT 토큰 생성
+- 만료 시간 설정
+- 토큰 갱신 지원
+```
+
+### 4. 사용자 인증
+```python
+async def get_current_user(token: str, db: Session)
+- JWT 토큰 검증
+- 사용자 정보 조회
+- 활성 상태 확인
+```
+
+## 보안 기능
+
+### 1. 비밀번호 보안
+- bcrypt 해싱 알고리즘 사용
+- 비밀번호 검증 함수 제공
+- 해시된 비밀번호 저장
+
+### 2. 토큰 보안
+- JWT 서명 검증
+- 토큰 만료 시간 관리
+- Bearer 토큰 방식 사용
+
+### 3. 접근 제어
+- 인증된 사용자 확인
+- 활성 사용자 확인
+- 권한 기반 접근 제어
+
+### 4. 에러 처리
+- 상세한 에러 메시지
+- 적절한 HTTP 상태 코드
+- 트랜잭션 롤백 지원
+
+## 로깅 시스템
+- 상세한 로그 기록
+- 에러 추적 지원
+- 보안 이벤트 기록
+
+## 개선 필요사항
+
+### 1. 보안 강화
+- SECRET_KEY 환경 변수 관리
+- 비밀번호 정책 설정
+- CORS 설정 검토
+
+### 2. 기능 추가
+- 비밀번호 재설정
+- 이메일 인증
+- 소셜 로그인 통합
+
+### 3. 에러 처리
+- 더 상세한 에러 메시지
+- 사용자 친화적 응답
+- 보안 관련 에러 처리
+
+### 4. 성능 최적화
+- 데이터베이스 쿼리 최적화
+- 캐싱 전략 수립
+- 토큰 블랙리스트 관리 

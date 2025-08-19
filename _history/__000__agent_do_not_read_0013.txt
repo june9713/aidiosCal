@@ -1,0 +1,122 @@
+# History 0013: 월간 달력 weekday와 calendar-day 너비 일치 문제 해결
+
+## 작업 일시
+2024-12-19
+
+## 작업 내용
+**문제**: 월간 달력에서 weekday 헤더와 calendar-day 셀의 너비가 일치하지 않는 문제
+
+### 1. 문제 분석
+- **현상**: 월간 달력에서 요일 헤더(weekday)와 날짜 셀(calendar-day)의 너비가 맞지 않음
+- **원인**: CSS Grid의 gap 설정 차이
+  - `.calendar-weekdays`: `gap` 없음
+  - `.calendar-days`: `gap: 1px` 설정
+- **결과**: 시각적으로 정렬이 맞지 않는 레이아웃
+
+### 2. 해결 과정
+1. **코드 분석**: `static/css/style.css` 파일의 달력 관련 스타일 검토
+2. **문제 식별**: Grid gap 차이로 인한 실제 셀 너비 불일치 확인
+3. **CSS 수정**: 
+   - `.calendar-weekdays`에 `gap: 1px` 추가
+   - 배경색 구조 변경: 상위 컨테이너에 #ddd, 개별 weekday에 #34495e
+   - 불필요한 border-right 제거
+
+### 3. 수정된 CSS
+```css
+.calendar-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    background: #ddd;
+}
+
+.weekday {
+    padding: 15px;
+    text-align: center;
+    color: white;
+    font-weight: bold;
+    background: #34495e;
+}
+```
+
+### 4. 사용된 도구
+- `codebase_search`: weekday, calendar-day 관련 코드 검색
+- `read_file`: style.css 파일 상세 분석
+- `edit_file`: CSS 수정 적용
+
+### 5. 결과
+- ✅ weekday와 calendar-day의 너비 완벽 일치
+- ✅ 시각적으로 일관된 그리드 레이아웃
+- ✅ 월간 달력의 전체적인 정렬 개선
+
+## 관련 파일
+- `static/css/style.css`: 달력 스타일 수정
+- `static/calendar-monthly.html`: 월간 달력 HTML 구조
+
+## 주의사항
+- 수정 후 브라우저 캐시 새로고침 필요
+- 모바일 반응형 스타일도 동일하게 적용됨
+- 다른 달력 뷰(주간)에는 영향 없음 
+
+# History 0013: 브라우저 종료 후 로그인 상태 유지 문제 해결
+
+## 작업 내용 (2025-01-03)
+
+### 1. 문제 분석
+- JWT 토큰을 localStorage에 저장하고 있지만 브라우저 종료 후 로그인 상태가 유지되지 않는 문제
+- 토큰 만료 시간은 30일로 충분히 길게 설정되어 있음
+- 세션 복원 로직에서 개선이 필요한 상황
+
+### 2. 프론트엔드 개선 사항
+**DOMContentLoaded 이벤트 핸들러 개선**:
+- 쿠키 기반 세션 체크 로직 추가
+- localStorage에 토큰이 없을 경우 `/check-session` 엔드포인트 호출
+- 사용자 데이터 복원 로직 순서 개선
+
+**fetchUserProfile 함수 개선**:
+- showScheduleInterface() 함수 추가로 UI 상태 더 확실하게 복원
+- 에러 처리 강화 및 로깅 개선
+
+**로그인 함수 개선**:
+- 로그인 성공 시 데이터 저장 로직 강화
+- 더 상세한 로깅 추가
+
+### 3. 백엔드 개선 사항
+**쿠키 기반 세션 지원 추가**:
+- `/token` 엔드포인트에서 HttpOnly 쿠키 설정 (30일 유지)
+- `/token/refresh` 엔드포인트에서 쿠키 업데이트
+- `/logout` 엔드포인트에서 쿠키 삭제
+
+**새 엔드포인트 추가**:
+- `/check-session`: 쿠키에서 토큰을 읽어 세션 유효성 체크
+- 토큰 디코딩을 위한 decode_access_token 함수 추가
+
+### 4. 보안 개선
+- HttpOnly 쿠키 사용으로 XSS 공격으로부터 토큰 보호
+- SameSite=lax 설정으로 CSRF 공격 방지
+- 쿠키와 localStorage 이중 보호 체계
+
+### 5. 실행된 파일 수정
+1. `static/js/main.js`: 
+   - DOMContentLoaded 이벤트 핸들러 개선
+   - fetchUserProfile, handleLogin, logout 함수 개선
+   - showScheduleInterface 함수 추가
+
+2. `app/routers/auth.py`:
+   - 로그인/리프레시 엔드포인트에서 쿠키 설정 추가
+   - `/logout`, `/check-session` 엔드포인트 추가
+
+3. `app/core/auth.py`:
+   - decode_access_token 함수 추가
+
+### 6. 예상 결과
+- 브라우저 종료 후 재접속 시에도 로그인 상태 유지
+- localStorage 손실 시에도 쿠키를 통한 세션 복원
+- 보안성 향상 (HttpOnly 쿠키 사용)
+- 사용자 경험 개선
+
+### 7. 테스트 방법
+1. 로그인 후 브라우저 완전 종료
+2. 브라우저 재시작 후 애플리케이션 접속
+3. localStorage 삭제 후 새로고침 테스트
+4. 토큰 만료 시 자동 갱신 동작 확인 

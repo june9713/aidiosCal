@@ -1,0 +1,99 @@
+# 일정 조회 시스템 개선 분석
+
+## 변경된 기능
+
+### 1. 일정 조회 API
+```python
+@router.get("/", response_model=List[ScheduleSchema])
+def read_schedules(
+    skip: int = 0,
+    limit: int = 100,
+    show_completed: bool = True,
+    show_all_users: bool = True,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+)
+```
+
+#### 주요 변경사항
+1. 모든 사용자 일정 조회
+   - show_all_users 파라미터 도입
+   - 기본값은 True로 설정
+   - 필요시 개인 일정만 필터링 가능
+
+2. 정렬 기능 추가
+   - 날짜 기준 내림차순 (최신순)
+   - 생성일 기준 내림차순 (보조 정렬)
+
+3. 데이터 로딩 최적화
+   - joinedload를 통한 N+1 쿼리 방지
+   - owner 정보 포함
+   - shares 정보 포함
+
+### 2. 스키마 개선
+```python
+class Schedule(ScheduleBase):
+    # ... 기존 필드들 ...
+    shares: List[ScheduleShare] = []
+
+    @computed_field
+    @property
+    def is_shared(self) -> bool:
+        return len(self.shares) > 0 if self.shares else False
+```
+
+#### 주요 변경사항
+1. 순환 참조 해결
+   - 스키마 정의 순서 조정
+   - ScheduleShare를 Schedule 앞에 배치
+
+2. 계산 필드 도입
+   - @computed_field 데코레이터 사용
+   - Pydantic 직렬화 지원
+   - None 안전성 확보
+
+## 성능 고려사항
+
+### 1. 데이터베이스 쿼리
+- JOIN 사용으로 쿼리 수 최소화
+- 인덱스 활용 (date, created_at)
+- 페이지네이션 적용
+
+### 2. 메모리 사용
+- 적절한 limit 설정
+- 필요한 관계만 로드
+- 계산된 필드 캐싱 가능성
+
+### 3. 확장성
+- 추가 필터링 용이
+- 정렬 옵션 확장 가능
+- 사용자 권한 통합 가능
+
+## 보안 고려사항
+
+### 1. 데이터 접근
+- 인증된 사용자만 접근 가능
+- 필요시 특정 사용자 일정만 필터링
+- 민감 정보 제외
+
+### 2. API 사용
+- 페이지네이션으로 과도한 요청 방지
+- 적절한 에러 처리
+- 입력값 검증
+
+## 향후 개선사항
+
+### 1. 기능 개선
+- 고급 필터링 옵션 추가
+- 사용자별 기본 설정 지원
+- 일정 카테고리화
+
+### 2. 성능 최적화
+- 캐싱 레이어 도입
+- 쿼리 최적화
+- 인덱스 전략 수립
+
+### 3. 사용자 경험
+- 일정 구분 시각화
+- 필터링 UI 개선
+- 실시간 업데이트 지원 

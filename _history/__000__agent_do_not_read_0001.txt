@@ -1,0 +1,842 @@
+# Project Analysis History - Detailed Structure Analysis
+
+## 2024-03-XX
+
+### Actions Performed
+1. Ran getAllfiles.py to generate complete file listing
+2. Analyzed project structure in detail
+3. Created detailed documentation
+
+### Files Generated/Updated
+1. _helper/all_files.json: Complete project file listing
+2. _analysis/analysis_0001.txt: Detailed project structure analysis
+
+### Key Discoveries
+1. Identified complete project structure:
+   - Core backend components in app/core/
+   - Data models in app/models/
+   - API routers in app/routers/
+   - Data schemas in app/schemas/
+   - Frontend assets in static/
+   - Logging configuration and files
+
+2. Confirmed technical stack:
+   - FastAPI backend
+   - SQLite + SQLAlchemy
+   - Custom authentication
+   - Static frontend
+   - Structured logging
+
+### Tools Used
+- getAllfiles.py for complete file listing
+- File analysis and documentation
+
+### Next Steps
+1. Review authentication implementation
+2. Analyze database models
+3. Document API endpoints
+4. Review frontend code
+5. Assess logging setup
+
+### Notes
+- Project follows FastAPI's recommended structure
+- Clear separation of concerns
+- Well-organized static assets
+- Proper logging implementation
+
+# aidiosCal 프로젝트 작업 기록 (계속)
+
+## 2024-03-19 (계속)
+4. 프로젝트 구조 분석
+   - main.py 분석 완료
+   - app 디렉토리 구조 파악
+   - 주요 컴포넌트 식별 및 문서화
+   - API 엔드포인트 매핑 작성
+
+5. 분석 결과 문서화
+   - _analysis/analysis_0001.txt 작성
+     - 프로젝트 구조 상세 기록
+     - 주요 컴포넌트 설명
+     - API 엔드포인트 목록
+     - 보안 관련 사항
+     - 다음 분석 단계 계획
+
+## 다음 작업 계획
+1. 데이터베이스 스키마 분석
+   - models.py 상세 검토
+   - 테이블 구조 문서화
+   - 관계 다이어그램 작성
+
+2. 인증 시스템 분석
+   - core/auth.py 검토
+   - routers/auth.py 검토
+   - 보안 설정 확인
+
+3. 일정 관리 로직 분석
+   - routers/schedules.py 검토
+   - 비즈니스 로직 파악
+   - 알람 시스템 연동 확인 
+
+2024년 작업 기록 #0001
+
+=== total-view-btn 기능 구현 및 totalview.html 페이지 생성 ===
+
+[작업 개요]
+사용자 요청에 따라 total-view-btn 버튼 클릭 시 totalview.html 페이지를 열도록 구현하고,
+4xn 그리드로 여러 개의 iframe에 entryScreen.html을 표시하는 Total View 페이지를 생성했습니다.
+
+[수행된 작업]
+
+1. 프로젝트 구조 분석
+   - aidiosCal2 프로젝트는 FastAPI 기반 일정 관리 시스템
+   - entryScreen.html에 total-view-btn 버튼이 40번째 줄에 존재
+   - static/js/main.js, calendar.js, schedule.js로 구성된 JavaScript 구조
+
+2. total-view-btn 클릭 이벤트 구현
+   - static/js/main.js의 setupCalendarViewButtons() 함수 수정
+   - total-view-btn 클릭 시 /static/totalview.html로 이동하는 이벤트 리스너 추가
+
+3. totalview.html 페이지 생성
+   - 완전한 HTML 페이지 구조 생성
+   - 반응형 디자인 적용 (4열 → 3열 → 2열 → 1열)
+   - 인증 체크 기능 포함
+
+[구현된 기능]
+
+1. 상단 컨트롤 패널
+   - iframe 개수 입력 필드 (1-16개 제한)
+   - 목록보기/월간보기/주간보기/로그아웃 버튼
+   - 그라디언트 디자인과 Font Awesome 아이콘 적용
+
+2. iframe 그리드 시스템
+   - 4xn 그리드 레이아웃 (기본 4열)
+   - 각 iframe 크기: width/4, height=900px
+   - 동적 iframe 생성 및 제거
+   - hover 효과와 박스 쀐도우 적용
+
+3. 사용자 경험 개선
+   - 로딩 인디케이터
+   - 키보드 단축키 (Alt+1,2,3,4)
+   - Enter 키로 iframe 수 적용
+   - 반응형 레이아웃
+
+[파일 변경 사항]
+- static/js/main.js: total-view-btn 이벤트 리스너 추가 (setupCalendarViewButtons 함수)
+- static/totalview.html: 신규 생성 (완전한 Total View 페이지)
+
+[기술적 세부사항]
+- CSS Grid를 활용한 반응형 레이아웃
+- iframe lazy loading 적용
+- 인증 토큰 체크 및 세션 관리
+- 크로스 브라우저 호환성 고려
+
+[테스트 가능한 기능]
+1. entryScreen.html에서 total-view-btn 클릭
+2. totalview.html 페이지 로딩
+3. iframe 개수 조정 (1-16개)
+4. 다른 뷰로 이동 (목록/월간/주간)
+5. 로그아웃 기능
+6. 반응형 레이아웃 확인
+
+[다음 단계 계획]
+- 실제 테스트 및 버그 수정
+- 성능 최적화 (필요 시)
+- 추가 기능 구현 (사용자 요청 시)
+
+=== 추가 기능 구현 (2024년 작업 기록 #0002) ===
+
+[사용자 요청 사항]
+1. iframe-wrapper의 height를 입력할 수 있는 입력 필드 추가
+2. control-panel이 10초간 마우스 입력이 없으면 숨겨지게 하는 기능
+3. 각 iframe의 entryScreen.html 컨트롤 설정값을 개별로 저장하고 복원하는 기능
+
+[구현된 추가 기능]
+
+1. **iframe 높이 조절 기능**
+   - 컨트롤 패널에 "높이(px)" 입력 필드 추가 (300-1200px 범위)
+   - CSS 변수(--iframe-height)를 사용한 동적 높이 조절
+   - localStorage를 통한 설정값 저장 및 복원
+   - Enter 키 지원으로 빠른 적용
+
+2. **컨트롤 패널 자동 숨기기 기능**
+   - 10초간 마우스 입력이 없으면 자동으로 패널 숨김
+   - 상단에 "컨트롤 패널 보기" 버튼 표시
+   - 마우스 enter/leave/move/click 이벤트로 타이머 리셋
+   - 부드러운 애니메이션 효과 (transform: translateY)
+   - Alt+C 키보드 단축키로 패널 다시 표시
+
+3. **iframe 개별 설정 관리 (부분 구현)**
+   - 각 iframe 헤더에 설정 버튼 추가
+   - localStorage를 통한 iframe별 설정값 저장
+   - URL 파라미터를 통한 설정값 전달
+   - 설정 모달 창을 통한 개별 설정 관리
+   - 지원되는 설정: 완료 일정 표시, 검색어, 사용자 필터
+
+=== 새로운 접근법: URL 경로 기반 독립 설정 시스템 (2024년 작업 기록 #0003) ===
+
+[문제점 발견]
+기존 URL 파라미터 방식의 iframe 개별 설정이 제대로 동작하지 않음
+- entryScreen.html에서 URL 파라미터 처리 로직 부재
+- iframe 간 설정 공유의 기술적 제약
+
+[새로운 해결책 도입]
+사용자 제안: 각 iframe마다 다른 엔드포인트 사용
+- `/static/entryScreen.html/1`, `/static/entryScreen.html/2`, `/static/entryScreen.html/3`, ...
+- 각 화면별로 완전히 독립적인 localStorage 키 사용
+
+[구현된 새로운 시스템]
+
+1. **백엔드 라우팅 추가 (main.py)**
+   ```python
+   @app.get("/static/entryScreen.html/{screen_id}", response_class=HTMLResponse)
+   async def get_entry_screen(screen_id: int):
+       """화면별 독립적인 entryScreen.html 제공"""
+   ```
+
+2. **totalview.html 수정**
+   - iframe 생성 시 각각 다른 URL 사용
+   - 복잡한 설정 모달 시스템 제거
+   - 간소화된 구조로 성능 개선
+
+3. **entryScreen.html 확장**
+   - URL 경로에서 화면 ID 추출 기능
+   - localStorage 함수 오버라이드로 화면별 설정 분리
+   - 자동 화면 번호 표시 기능
+
+[기술적 구현 세부사항]
+
+1. **URL 경로 파싱**
+   ```javascript
+   function getScreenId() {
+       const pathSegments = window.location.pathname.split('/');
+       const lastSegment = pathSegments[pathSegments.length - 1];
+       return /^\d+$/.test(lastSegment) ? lastSegment : '0';
+   }
+   ```
+
+2. **localStorage 오버라이드**
+   ```javascript
+   // 화면별 고유 키 생성
+   function getStorageKey(key) {
+       const screenId = getScreenId();
+       return `entryScreen_${screenId}_${key}`;
+   }
+   
+   // 설정 관련 키만 화면별로 분리
+   const screenSpecificKeys = [
+       'showCompleted', 'selectedUsers', 'completedOnly', 
+       'searchTerm', 'currentPage', 'userCheckboxStates'
+   ];
+   ```
+
+3. **시각적 구분**
+   - 페이지 제목에 화면 번호 표시
+   - 사용자 정보 영역에 화면 번호 추가
+   - 각 화면의 독립성을 시각적으로 확인 가능
+
+[장점]
+
+1. **완전한 독립성**
+   - 각 iframe은 서로 다른 URL을 가짐
+   - localStorage 키가 화면별로 완전 분리
+   - 설정 충돌 없음
+
+2. **기술적 단순성**
+   - 복잡한 postMessage API 불필요
+   - URL 파라미터 전달 로직 불필요
+   - 브라우저 네이티브 기능만 활용
+
+3. **확장성**
+   - 화면 수 제한 없음 (서버 리소스 허용 범위 내)
+   - 각 화면별 고유 설정 무제한 추가 가능
+   - 향후 기능 확장 용이
+
+[사용 시나리오]
+- `서버주소/static/entryScreen.html/1`: 첫 번째 화면
+- `서버주소/static/entryScreen.html/2`: 두 번째 화면
+- 각 화면에서 개별적으로 필터, 검색, 사용자 설정 가능
+- 설정값이 다른 화면에 영향 주지 않음
+
+[테스트 가능한 기능]
+1. totalview.html에서 여러 iframe 생성 확인
+2. 각 iframe이 서로 다른 URL로 로드되는지 확인
+3. 한 화면에서 설정 변경 시 다른 화면에 영향 없는지 확인
+4. 페이지 새로고침 후에도 각 화면별 설정 유지되는지 확인
+5. 화면 번호가 제목과 사용자 정보에 표시되는지 확인
+
+[다음 단계]
+- 실제 테스트를 통한 동작 확인
+- 필요시 추가 설정 항목 구현
+- 성능 최적화 및 사용자 경험 개선
+
+=== 404 오류 해결 및 모아보기 화면 개선 (2024년 작업 기록 #0004) ===
+
+[발생한 문제]
+totalview.html에서 iframe 로딩 시 404 Not Found 오류 발생:
+```
+INFO: 192.168.1.142:4007 - "GET /entryScreen.html/1 HTTP/1.1" 404 Not Found
+INFO: 192.168.1.142:4001 - "GET /entryScreen.html/2 HTTP/1.1" 404 Not Found
+```
+
+[원인 분석]
+1. **라우트 경로 불일치**: 
+   - iframe은 `/entryScreen.html/{id}` 요청
+   - FastAPI 라우트는 `/static/entryScreen.html/{screen_id}` 처리
+2. **Static 마운트 우선순위**: 
+   - `app.mount("/static", ...)` 후에 라우트 정의
+   - 동적 라우트가 static 마운트에 가려짐
+
+[해결 방법]
+
+1. **FastAPI 라우트 순서 변경 (main.py)**
+   ```python
+   # static 마운트 전에 동적 라우트 정의
+   @app.get("/entryScreen.html/{screen_id}", response_class=HTMLResponse)
+   async def get_entry_screen_dynamic(screen_id: int):
+       logger.info(f"Requested entryScreen.html with screen_id: {screen_id}")
+       # ... 구현
+   
+   app.mount("/static", StaticFiles(directory="static"), name="static")
+   ```
+
+2. **iframe URL 수정 (totalview.html)**
+   ```javascript
+   // 수정 전: src="/static/entryScreen.html/${index}"
+   // 수정 후: src="/entryScreen.html/${index}"
+   ```
+
+3. **모아보기 화면 경로 변경**
+   - 기존: `/static/entryScreen.html`
+   - 변경: `/entryScreen.html/0`
+   - 화면 ID 0을 "모아보기"로 처리
+
+[추가된 기능]
+
+1. **상세 로깅 시스템**
+   ```python
+   logger.info(f"Requested entryScreen.html with screen_id: {screen_id}")
+   logger.info(f"Successfully served entryScreen.html for screen_id: {screen_id}")
+   logger.error(f"entryScreen.html not found for screen_id: {screen_id}")
+   ```
+
+2. **화면 ID별 타이틀 구분**
+   ```javascript
+   if (screenId !== '0') {
+       document.title = `일정 관리 시스템 - 화면 ${screenId}`;
+   } else {
+       document.title = `일정 관리 시스템 - 모아보기`;
+   }
+   ```
+
+[테스트 결과]
+- `/entryScreen.html/1`: 200 OK ✅
+- `/entryScreen.html/2`: 200 OK ✅  
+- `/entryScreen.html/0`: 200 OK ✅ (모아보기)
+- 라우트 등록 확인: `"/entryScreen.html/{screen_id}"` ✅
+
+[URL 구조]
+```
+서버주소/entryScreen.html/0  → 모아보기 화면
+서버주소/entryScreen.html/1  → 첫 번째 화면
+서버주소/entryScreen.html/2  → 두 번째 화면
+서버주소/entryScreen.html/N  → N번째 화면
+```
+
+[기술적 개선사항]
+
+1. **라우트 우선순위 최적화**
+   - 동적 라우트를 static 마운트보다 먼저 정의
+   - FastAPI의 라우트 매칭 알고리즘 활용
+
+2. **디버깅 편의성 향상**
+   - 각 요청에 대한 상세 로그 출력
+   - 성공/실패 케이스 모두 로깅
+
+3. **사용자 경험 통일**
+   - 모든 화면이 동일한 URL 패턴 사용
+   - 화면 ID 기반 일관된 설정 관리
+
+[향후 확장 가능성]
+- 화면별 접근 권한 관리
+- 화면별 성능 모니터링
+- 화면별 개별 테마/설정 지원
+
+이제 totalview.html에서 iframe 로딩이 정상적으로 작동하며, 각 화면이 독립적인 설정을 가질 수 있습니다. 
+
+=== 필터 저장 방식 개선 및 복원 시스템 강화 (2024년 작업 기록 #0006) ===
+
+[개선 요청사항]
+1. 필터 저장 방식 변경: 모든 체크박스 상태 대신 현재 활성화된 필터만 저장
+2. 복원 후 `restoreFilter` 함수 실행으로 필터 상태 재적용
+
+[기존 저장 방식의 문점점]
+```javascript
+// 기존: 모든 체크박스 상태 저장
+{"user-all":false,"user-1":false,"user-2":false,"user-3":true}
+```
+- 불필요한 데이터 저장
+- 복원 시 복잡한 로직 필요
+- 확장성 부족
+
+[새로운 저장 방식]
+
+1. **단일 활성화 필터 저장**
+   ```javascript
+   // 모든 사용자 선택 시
+   {"activated_id": "user-all"}
+   
+   // 특정 사용자 선택 시
+   {"activated_id": "user-2", "activated_name": "admin (admin)"}
+   ```
+
+2. **saveFilterSettings() 함수 개선**
+   ```javascript
+   // 현재 활성화된 사용자 필터 찾기
+   const userCheckboxes = document.querySelectorAll('#user-checkboxes input[type="checkbox"]');
+   let activatedFilter = null;
+   
+   userCheckboxes.forEach(cb => {
+       if (cb.checked) {
+           if (cb.id === 'user-all') {
+               activatedFilter = { activated_id: 'user-all' };
+           } else {
+               const label = document.querySelector(`label[for="${cb.id}"]`);
+               const userName = label ? label.textContent.trim() : cb.id;
+               activatedFilter = { 
+                   activated_id: cb.id,
+                   activated_name: userName 
+               };
+           }
+       }
+   });
+   ```
+
+[restoreFilter 함수 구현]
+
+1. **필터 상태 재구성**
+   ```javascript
+   function restoreFilter() {
+       // selectedUsers Set 재구성
+       selectedUsers.clear();
+       
+       const activatedFilter = JSON.parse(savedCheckboxStates);
+       if (activatedFilter.activated_id !== 'user-all') {
+           const userId = activatedFilter.activated_id.replace('user-', '');
+           if (!isNaN(userId)) {
+               selectedUsers.add(parseInt(userId));
+           }
+       }
+       
+       // 일정 목록 다시 렌더링
+       renderSchedules();
+   }
+   ```
+
+2. **UI 상태 복원 개선**
+   ```javascript
+   function restoreUIState() {
+       // 모든 체크박스 해제
+       const allCheckboxes = document.querySelectorAll('#user-checkboxes input[type="checkbox"]');
+       allCheckboxes.forEach(cb => { cb.checked = false; });
+       
+       // 저장된 활성화 필터만 체크
+       const targetCheckbox = document.getElementById(activatedFilter.activated_id);
+       if (targetCheckbox) {
+           targetCheckbox.checked = true;
+       }
+       
+       // 필터 상태 재적용
+       restoreFilter();
+   }
+   ```
+
+[구현된 복원 프로세스]
+
+1. **UI 복원**: 체크박스 상태 복원
+2. **데이터 복원**: selectedUsers Set 재구성
+3. **렌더링**: 필터 적용된 일정 목록 재표시
+4. **UI 동기화**: 체크박스와 내부 상태 일치
+
+[장점]
+
+1. **데이터 효율성**
+   - 저장 용량 최소화
+   - 단순한 JSON 구조
+   - 확장성 향상
+
+2. **복원 안정성**
+   - 명확한 복원 순서
+   - 상태 불일치 방지
+   - 에러 처리 강화
+
+3. **디버깅 편의성**
+   - 콘솔 로그로 각 단계 추적
+   - 명확한 함수 분리
+   - 상태 변화 모니터링
+
+[저장 예시]
+
+```javascript
+// 사용자 1 선택 시
+{"activated_id": "user-1", "activated_name": "박정준 (june9713)"}
+
+// 사용자 2 선택 시  
+{"activated_id": "user-2", "activated_name": "admin (admin)"}
+
+// 모든 사용자 선택 시
+{"activated_id": "user-all"}
+```
+
+[복원 플로우]
+
+```
+페이지 로드
+    ↓
+loadFilterSettings() - localStorage에서 변수 복원
+    ↓
+애플리케이션 초기화
+    ↓
+restoreUIState() - UI 요소 복원
+    ↓
+restoreFilter() - 필터 상태 재적용
+    ↓
+renderSchedules() - 일정 목록 재렌더링
+```
+
+[에러 핸들링]
+
+- try-catch로 각 단계 안전성 보장
+- 기본값 fallback으로 복원 실패 대응
+- 상세한 로그로 문제점 추적
+
+이제 필터 시스템이 더욱 효율적이고 안정적으로 작동하며, 디버깅과 유지보수가 용이해졌습니다. 
+
+=== 컨트롤 패널 숨김 시 공간 최적화 구현 (2024년 작업 기록 #0007) ===
+
+[요청사항]
+컨트롤 패널이 숨겨질 때 iframe 컨테이너도 위로 올라가서 공간을 효율적으로 활용
+
+[기존 동작]
+- 컨트롤 패널이 `transform: translateY(-100%)`로 위로 숨겨짐
+- iframe 컨테이너는 그대로 유지되어 빈 공간 발생
+- 화면 공간 낭비 문제
+
+[구현된 해결책]
+
+1. **CSS 클래스 추가**
+   ```css
+   .iframe-container {
+       transition: margin-top 0.3s ease;
+   }
+   
+   .iframe-container.panel-hidden {
+       margin-top: -70px; /* 기본값, 동적으로 조정됨 */
+   }
+   ```
+
+2. **동적 높이 측정 시스템**
+   ```javascript
+   // 컨트롤 패널 실제 높이 측정
+   let panelHeight = 0;
+   if (controlPanel) {
+       panelHeight = controlPanel.offsetHeight;
+       console.log('컨트롤 패널 높이:', panelHeight + 'px');
+   }
+   ```
+
+3. **정확한 위치 조정**
+   ```javascript
+   // 패널 숨김 시
+   iframeContainer.style.marginTop = `-${panelHeight}px`;
+   iframeContainer.classList.add('panel-hidden');
+   
+   // 패널 표시 시  
+   iframeContainer.style.marginTop = '0px';
+   iframeContainer.classList.remove('panel-hidden');
+   ```
+
+[구현 특징]
+
+1. **반응형 높이 조정**
+   - 컨트롤 패널의 실제 높이를 동적으로 측정
+   - 브라우저 창 크기나 내용에 따른 높이 변화 대응
+   - 정확한 픽셀 단위 조정
+
+2. **부드러운 애니메이션**
+   - CSS transition으로 0.3초 부드러운 이동
+   - 컨트롤 패널 숨김/표시와 동일한 애니메이션 시간
+   - 시각적 일관성 유지
+
+3. **안전한 조건 처리**
+   ```javascript
+   if (iframeContainer && panelHeight > 0) {
+       // 높이가 유효할 때만 조정
+   }
+   ```
+
+[사용자 경험 개선]
+
+1. **공간 효율성 최대화**
+   - 컨트롤 패널 숨김 시 iframe 영역 확장
+   - 전체 화면을 iframe 표시에 활용
+   - 더 많은 일정 정보 표시 가능
+
+2. **자연스러운 인터페이스**
+   - 패널과 iframe이 연동된 움직임
+   - 예상 가능한 UI 동작
+   - 직관적인 공간 활용
+
+3. **디버깅 지원**
+   - 콘솔 로그로 패널 높이 확인 가능
+   - 개발자 도구에서 동작 추적 용이
+
+[기술적 구현 세부사항]
+
+1. **높이 측정 타이밍**
+   - `setupControlPanelAutoHide()` 함수 초기 실행 시 측정
+   - DOM 완전 로드 후 정확한 높이 계산
+   - 한 번 측정 후 재사용으로 성능 최적화
+
+2. **CSS와 JavaScript 연동**
+   - CSS 클래스로 기본 transition 설정
+   - JavaScript로 동적 margin-top 값 조정
+   - 두 방식의 장점 결합
+
+3. **이벤트 연동**
+   - 기존 컨트롤 패널 숨김/표시 로직에 통합
+   - 별도 이벤트 리스너 불필요
+   - 코드 복잡도 최소화
+
+[예상 동작 플로우]
+
+```
+컨트롤 패널 표시 상태
+    ↓ (10초 비활성)
+컨트롤 패널 위로 숨김 (transform: translateY(-100%))
+    +
+iframe 컨테이너 위로 이동 (margin-top: -70px)
+    ↓
+전체 iframe 영역 확장
+    ↓ (사용자 상호작용 또는 Alt+C)
+컨트롤 패널 다시 표시
+    +
+iframe 컨테이너 원위치 복귀 (margin-top: 0px)
+```
+
+[테스트 시나리오]
+
+1. **기본 동작 테스트**
+   - totalview.html 접속
+   - 10초 대기 후 컨트롤 패널 자동 숨김 확인
+   - iframe들이 위로 올라가는지 확인
+
+2. **수동 조작 테스트**
+   - "컨트롤 패널 보기" 버튼 클릭
+   - Alt+C 키보드 단축키 사용
+   - iframe 위치가 정확히 복원되는지 확인
+
+3. **반응형 테스트**
+   - 브라우저 창 크기 변경
+   - 다양한 해상도에서 동작 확인
+   - 모바일 환경에서의 동작 테스트
+
+이제 컨트롤 패널 숨김 시 화면 공간이 최대한 효율적으로 활용되어 더 많은 일정 정보를 한 번에 볼 수 있습니다. 
+
+=== 작업 히스토리 - 0001
+
+## 날짜: 2024년 (세션 지속성 개선)
+
+### 요청사항
+- 브라우저 종료 후 다시 접속해도 세션이 1달간 유지
+- 접속할 때마다 세션이 1달씩 갱신
+- 기존에는 브라우저 종료 후 재접속 시 세션이 유지되지 않는 문제 발생
+
+### 분석 결과
+1. **백엔드**: JWT 토큰 만료시간이 30일(43200분)로 올바르게 설정됨
+2. **프론트엔드 문제점**:
+   - `isTokenExpired()` 함수가 localStorage의 `tokenCreatedAt`만 체크
+   - 실제 JWT 토큰의 만료시간은 체크하지 않음
+   - 페이지 로드 시 토큰 자동 갱신 로직 부족
+   - API 요청 실패 시 토큰 갱신 후 재시도 로직 부족
+
+### 구현된 해결책
+
+#### 1. JWT 토큰 디코딩 및 검증 강화
+- `decodeJWTToken()`: JWT 토큰을 디코딩하여 실제 payload 추출
+- `isJWTTokenExpired()`: 실제 JWT 만료시간 기반 검증 (5분 버퍼 포함)
+- `shouldRefreshToken()`: 토큰이 1주일 이내 만료 예정시 갱신 필요 판단
+
+#### 2. 자동 토큰 갱신 메커니즘
+- `apiRequest()`: 모든 API 호출을 래핑하여 자동 토큰 갱신 적용
+  - API 호출 전 토큰 만료 체크 및 자동 갱신
+  - 401 에러 발생 시 토큰 갱신 후 요청 재시도
+  - 갱신 실패 시 세션 자동 정리
+
+#### 3. 페이지 로드 시 토큰 관리 개선
+- DOMContentLoaded 시 JWT 토큰 만료 체크
+- 만료된 토큰 발견 시 자동 갱신 시도
+- 곧 만료될 토큰 사전 갱신 (1주일 이내)
+
+#### 4. 세션 관리 로직 개선
+- `isTokenExpired()`: JWT 기반 검증으로 변경
+- `refreshToken()`: 반환값 추가로 성공/실패 판단 가능
+- `startTokenRefresh()`: 주기적 갱신 간격을 24시간 → 6시간으로 단축
+
+#### 5. API 호출 통합
+다음 함수들을 `apiRequest` 사용으로 변경:
+- `fetchUserProfile()`
+- `loadFilesForMainView()`
+- `deleteFileFromMainView()`
+- `main_loadSchedules()`
+- `loadUserCheckboxes()`
+- `loadAlarms()`
+- `clearAllAlarms()`
+- `loadProjectList()`
+
+### 기대 효과
+1. 브라우저 종료 후 재접속 시 세션 자동 유지
+2. 사용자 활동 시 토큰 자동 갱신으로 1달씩 연장
+3. 모든 API 호출에서 일관된 토큰 관리
+4. 토큰 만료로 인한 예상치 못한 로그아웃 방지
+
+### 주요 개선사항
+- localStorage 기반 → JWT 실제 만료시간 기반 검증
+- 수동 토큰 관리 → 자동 토큰 갱신 시스템
+- 개별 API 호출 → 통합 API 래퍼 함수
+- 24시간 갱신 주기 → 6시간 갱신 주기 + 즉시 갱신
+
+**History Log 0001 - 이미지 업로드 경로 문제 해결**
+
+## 문제 발견 (2024-12-28)
+- 사용자 신고: 파일이 `./static/uploads/` 경로로 정상 업로드되지만 썸네일 표시 시 `/upload/` 경로로 접근하여 이미지가 보이지 않음
+
+## 문제 분석
+1. **파일 저장 위치**: `./static/uploads/` (attachments.py L18: `UPLOAD_DIR = Path("./static/uploads")`)
+2. **DB 저장 경로**: `/uploads/{filename}` (attachments.py L150: `file_path=f"/uploads/{file_path.name}"`)
+3. **Static 마운트**: 
+   - `/static` → `static` 디렉토리 (main.py L100)
+   - `/uploads` → `uploads` 디렉토리 (main.py L104) - 루트 uploads 폴더
+4. **프론트엔드**: 썸네일에서 DB의 file_path 직접 사용 (main.js, fileviewer.js)
+
+## 근본 원인
+- 파일은 `static/uploads/`에 저장
+- DB에는 `/uploads/`로 기록
+- 웹에서 `/uploads/` 접근 시 루트의 `uploads` 디렉토리를 찾음 (실제 파일은 `static/uploads/`에 있음)
+- 경로 불일치로 인한 404 에러
+
+## 해결 방법
+1. **attachments.py 수정**: DB 저장 경로를 `/static/uploads/{filename}`로 변경
+2. **기존 데이터 마이그레이션**: 
+   - 기존 다양한 형태의 경로들을 `/static/uploads/` 형태로 통일
+   - 중복 슬래시 문제도 해결
+
+## 작업 완료 상태
+✅ attachments.py L150 수정: `/uploads/` → `/static/uploads/`
+✅ 기존 DB 데이터 마이그레이션 완료 (5개 레코드)
+✅ 경로 통일 및 중복 슬래시 제거
+
+## 테스트 필요
+- 새로운 파일 업로드 후 썸네일 표시 확인
+- 기존 파일들의 썸네일 표시 확인
+- 파일 다운로드 기능 정상 작동 확인
+
+# 파일뷰어 모바일 뷰 그리드 개선 작업 히스토리
+
+## 작업 일시
+2024년 현재 세션
+
+## 작업 목표
+파일뷰어 페이지의 모바일 뷰에서 그리드 표시를 더욱 정렬되고 깔끔하게 개선
+
+## 수행한 작업
+
+### 1. 프로젝트 구조 분석
+- 프로젝트 루트 디렉토리 구조 확인
+- `static/fileviewer.html` - 파일뷰어 HTML 구조 (151라인)
+- `static/css/fileviewer.css` - 파일뷰어 전용 CSS (610라인 → 788라인)
+- `static/js/fileviewer.js` - 파일뷰어 JavaScript (719라인)
+
+### 2. 현재 상태 분석
+**기존 모바일 뷰 설정 (768px 이하):**
+- 그리드 최소 너비: 150px (너무 좁음)
+- 간격: 15px (너무 촘촘함)
+- 썸네일 높이: 120px (너무 작음)
+
+**문제점 식별:**
+- 모바일에서 파일 정보 표시 부족
+- 터치 친화적이지 않은 UI
+- 체크박스 크기와 위치 문제
+- 일관성 부족한 디자인
+
+### 3. 모바일 뷰 개선 사항
+
+**그리드 최적화:**
+- 최소 너비: 150px → 180px
+- 간격: 15px → 20px  
+- 썸네일 높이: 120px → 140px
+- auto-fill → auto-fit으로 변경하여 더 나은 레이아웃
+
+**디자인 모던화:**
+- 카드 스타일: border-radius 8px → 12px
+- 향상된 box-shadow 효과
+- 그라데이션 배경 적용
+- 호버 효과 개선 (transform: translateY(-2px))
+
+**터치 인터페이스 최적화:**
+- 체크박스 크기: 기본 → 24px × 24px
+- 체크박스 위치: 왼쪽 → 오른쪽 상단
+- 체크박스 스타일: 원형으로 변경, 체크 아이콘 추가
+- 컨텍스트 메뉴 터치 최적화: 48px 최소 높이
+
+**텍스트 처리 개선:**
+- 파일명: 2줄 제한 (-webkit-line-clamp: 2)
+- 폰트 크기 및 가중치 조정
+- 메타데이터 레이아웃 개선
+
+**추가 미디어 쿼리 (480px 이하):**
+- 더 작은 화면을 위한 추가 최적화
+- 최소 너비 160px로 조정
+- 간격과 패딩 재조정
+
+### 4. 데스크톱 뷰 일관성 개선
+
+**그리드 최적화:**
+- 최소 너비: 200px → 220px  
+- 간격: 20px → 24px
+- 썸네일 높이: 150px → 160px
+
+**디자인 통일:**
+- 모바일과 동일한 border-radius (12px)
+- 일관된 box-shadow 효과
+- 체크박스 스타일 통일 (28px × 28px)
+- 호버 효과 강화
+
+**사용자 경험 개선:**
+- 이미지 호버 시 확대 효과 (scale(1.05))
+- 아이콘 색상 변화 효과
+- 부드러운 전환 효과 (0.3s)
+
+## 주요 개선 결과
+
+1. **모바일 사용성 향상**
+   - 터치하기 쉬운 크기의 인터페이스 요소
+   - 명확한 시각적 피드백
+   - 일관된 간격과 정렬
+
+2. **디자인 모던화**
+   - 깔끔한 카드 기반 디자인
+   - 부드러운 애니메이션 효과
+   - 일관된 색상 체계
+
+3. **반응형 개선**
+   - 다양한 화면 크기에 최적화
+   - 768px, 480px 브레이크포인트 최적화
+   - 터치 디바이스 호버 효과 제거
+
+4. **성능 고려사항**
+   - CSS 전환 효과 최적화
+   - 터치 디바이스 호버 비활성화
+   - 효율적인 그리드 레이아웃
+
+## 수정된 파일
+- `static/css/fileviewer.css`: 전면적인 모바일/데스크톱 그리드 스타일 개선

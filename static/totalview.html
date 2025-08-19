@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Total View - 일정 관리 시스템</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+        }
+        
+        .totalview-container {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .control-panel {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+            transition: transform 0.3s ease;
+            position: relative;
+            z-index: 1000;
+        }
+        
+        .control-panel.hidden {
+            transform: translateY(-100%);
+        }
+        
+        .show-panel-btn {
+            position: fixed;
+            top: 1px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(102, 126, 234, 0.2);
+            color: rgba(255, 255, 0, 0.7);
+            border: none;
+            padding: 4px 4px;
+            border-radius: 0 0 8px 8px;
+            cursor: pointer;
+            z-index: 999;
+            display: none;
+            transition: all 0.3s ease;
+        }
+        
+        .show-panel-btn:hover {
+            background: rgba(102, 126, 234, 1);
+        }
+        
+        .control-panel h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .control-group label {
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        
+        .control-group input[type="number"] {
+            width: 80px;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 5px;
+            font-size: 14px;
+            text-align: center;
+        }
+        
+        .control-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+        
+        .control-btn.logout {
+            background: rgba(220, 53, 69, 0.8);
+        }
+        
+        .control-btn.logout:hover {
+            background: rgba(220, 53, 69, 1);
+        }
+        
+        .iframe-container {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            transition: margin-top 0.3s ease;
+        }
+        
+        .iframe-container.panel-hidden {
+            margin-top: -70px; /* 컨트롤 패널 높이만큼 위로 이동 */
+        }
+        
+        .iframe-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            width: 100%;
+        }
+        
+        .iframe-wrapper {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            background: white;
+            transition: all 0.3s ease;
+        }
+        
+        .iframe-wrapper:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+            border-color: #667eea;
+        }
+        
+        .iframe-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 8px 12px;
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .settings-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.2s;
+        }
+        
+        .settings-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        .iframe-wrapper iframe {
+            width: 100%;
+            height: var(--iframe-height, 580px);
+            border: none;
+            display: block;
+        }
+        
+        @media (max-width: 1600px) {
+            .iframe-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+        
+        @media (max-width: 1200px) {
+            .iframe-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        @media (max-width: 800px) {
+            .iframe-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .control-panel {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+            }
+            
+            .control-group {
+                justify-content: center;
+            }
+        }
+        
+        .loading-indicator {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-size: 16px;
+        }
+        
+        .no-frames {
+            text-align: center;
+            padding: 60px 20px;
+            color: #888;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <button class="show-panel-btn" onclick="showControlPanel()">
+        <i class="fas fa-chevron-down"></i> 컨트롤 패널 보기
+    </button>
+    
+    <div class="totalview-container">
+        <div class="control-panel" id="control-panel">
+            <h1><i class="fas fa-border-all"></i> Total View</h1>
+            
+            <div class="control-group">
+                <label for="iframe-count">화면 수:</label>
+                <input type="number" id="iframe-count" value="4" min="1" max="16">
+            </div>
+            
+            <div class="control-group">
+                <label for="iframe-height">높이(px):</label>
+                <input type="number" id="iframe-height" value="580" min="300" max="1200" step="10">
+            </div>
+            
+            <div class="control-group">
+                <button class="control-btn" onclick="updateIframes()">
+                    <i class="fas fa-sync-alt"></i> 적용
+                </button>
+            </div>
+            
+            <div class="control-group">
+                <button class="control-btn" onclick="goToListView()">
+                    <i class="fas fa-list"></i> 목록보기
+                </button>
+                <button class="control-btn" onclick="goToMonthView()">
+                    <i class="fas fa-calendar-alt"></i> 월간보기
+                </button>
+                <button class="control-btn" onclick="goToWeekView()">
+                    <i class="fas fa-calendar-week"></i> 주간보기
+                </button>
+                <button class="control-btn logout" onclick="logout()">
+                    <i class="fas fa-sign-out-alt"></i> 로그아웃
+                </button>
+            </div>
+        </div>
+        
+        <div class="iframe-container">
+            <div id="iframe-grid" class="iframe-grid">
+                <!-- iframe들이 여기에 동적으로 생성됩니다 -->
+            </div>
+            
+            <div id="loading-indicator" class="loading-indicator" style="display: none;">
+                <i class="fas fa-spinner fa-spin"></i> 화면을 로딩 중입니다...
+            </div>
+            
+            <div id="no-frames" class="no-frames" style="display: none;">
+                화면 수를 설정하고 적용 버튼을 클릭하세요.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let hideTimer = null;
+        let currentIframeHeight = 580;
+        
+        // 인증 체크
+        document.addEventListener('DOMContentLoaded', function() {
+            // 현재 페이지를 로컬 스토리지에 저장
+            const currentPath = window.location.pathname;
+            localStorage.setItem('lastPage', currentPath);
+
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = '/static/index.html';
+                return;
+            }
+            
+            // 저장된 설정 불러오기
+            loadSettings();
+            
+            // 초기 iframe 생성
+            updateIframes();
+            
+            // 컨트롤 패널 자동 숨기기 설정
+            setupControlPanelAutoHide();
+        });
+
+        function loadSettings() {
+            const savedCount = localStorage.getItem('totalview-iframe-count');
+            const savedHeight = localStorage.getItem('totalview-iframe-height');
+            
+            if (savedCount) {
+                document.getElementById('iframe-count').value = savedCount;
+            }
+            
+            if (savedHeight) {
+                document.getElementById('iframe-height').value = savedHeight;
+                currentIframeHeight = parseInt(savedHeight);
+            }
+        }
+
+        function saveSettings() {
+            const count = document.getElementById('iframe-count').value;
+            const height = document.getElementById('iframe-height').value;
+            
+            localStorage.setItem('totalview-iframe-count', count);
+            localStorage.setItem('totalview-iframe-height', height);
+        }
+
+        function setupControlPanelAutoHide() {
+            const controlPanel = document.getElementById('control-panel');
+            const showPanelBtn = document.querySelector('.show-panel-btn');
+            const iframeContainer = document.querySelector('.iframe-container');
+            
+            // 컨트롤 패널 높이 측정
+            let panelHeight = 0;
+            if (controlPanel) {
+                panelHeight = controlPanel.offsetHeight;
+                console.log('컨트롤 패널 높이:', panelHeight + 'px');
+            }
+            
+            function resetHideTimer() {
+                if (hideTimer) {
+                    clearTimeout(hideTimer);
+                }
+                
+                hideTimer = setTimeout(() => {
+                    controlPanel.classList.add('hidden');
+                    showPanelBtn.style.display = 'block';
+                    if (iframeContainer && panelHeight > 0) {
+                        // 동적으로 높이 설정
+                        iframeContainer.style.marginTop = `-${panelHeight}px`;
+                        iframeContainer.classList.add('panel-hidden');
+                    }
+                }, 10000); // 10초
+            }
+            
+            function showPanel() {
+                controlPanel.classList.remove('hidden');
+                showPanelBtn.style.display = 'none';
+                if (iframeContainer) {
+                    iframeContainer.style.marginTop = '0px';
+                    iframeContainer.classList.remove('panel-hidden');
+                }
+                resetHideTimer();
+            }
+            
+            // 컨트롤 패널에 마우스 이벤트 추가
+            controlPanel.addEventListener('mouseenter', () => {
+                if (hideTimer) {
+                    clearTimeout(hideTimer);
+                }
+            });
+            
+            controlPanel.addEventListener('mouseleave', resetHideTimer);
+            controlPanel.addEventListener('mousemove', resetHideTimer);
+            controlPanel.addEventListener('click', resetHideTimer);
+            
+            // 초기 타이머 시작
+            resetHideTimer();
+            
+            // 전역 함수로 설정
+            window.showControlPanel = showPanel;
+        }
+
+        function updateIframes() {
+            const count = parseInt(document.getElementById('iframe-count').value);
+            const height = parseInt(document.getElementById('iframe-height').value);
+            
+            if (count < 1 || count > 16) {
+                alert('화면 수는 1개에서 16개 사이로 설정해주세요.');
+                return;
+            }
+            
+            if (height < 300 || height > 1200) {
+                alert('높이는 300px에서 1200px 사이로 설정해주세요.');
+                return;
+            }
+            
+            currentIframeHeight = height;
+            
+            // CSS 변수로 높이 설정
+            document.documentElement.style.setProperty('--iframe-height', height + 'px');
+            
+            showLoading(true);
+            const grid = document.getElementById('iframe-grid');
+            grid.innerHTML = '';
+            
+            // iframe 생성
+            for (let i = 1; i <= count; i++) {
+                createIframe(i);
+            }
+            
+            // 설정 저장
+            saveSettings();
+            
+            // 로딩 완료 후 숨기기
+            setTimeout(() => {
+                showLoading(false);
+            }, 1000);
+        }
+        
+        function createIframe(index) {
+            const grid = document.getElementById('iframe-grid');
+            
+            const wrapper = document.createElement('div');
+            wrapper.className = 'iframe-wrapper';
+            wrapper.innerHTML = `
+                <div class="iframe-header">
+                    <i class="fas fa-desktop"></i> 화면 ${index}
+                </div>
+                <iframe src="/entryScreen/${index}" 
+                        title="Entry Screen ${index}"
+                        id="iframe-${index}"
+                        loading="lazy">
+                </iframe>
+            `;
+            
+            grid.appendChild(wrapper);
+        }
+        
+        function loadIframeSettings(index) {
+            // 이제 각 iframe이 독립적인 URL을 가지므로 이 함수는 필요 없음
+            return {};
+        }
+        
+        function saveIframeSettings(index, settings) {
+            // 이제 각 iframe이 독립적인 URL을 가지므로 이 함수는 필요 없음
+        }
+        
+        function setupIframeMessaging(index) {
+            // 필요 시 나중에 구현
+        }
+        
+        function openIframeSettings(index) {
+            alert(`화면 ${index}의 설정은 해당 iframe 내에서 직접 관리됩니다.\niframe 내부의 컨트롤을 사용해주세요.`);
+        }
+        
+        function showLoading(show) {
+            const loadingIndicator = document.getElementById('loading-indicator');
+            const noFrames = document.getElementById('no-frames');
+            const grid = document.getElementById('iframe-grid');
+            
+            if (show) {
+                loadingIndicator.style.display = 'block';
+                noFrames.style.display = 'none';
+                grid.style.display = 'none';
+            } else {
+                loadingIndicator.style.display = 'none';
+                const frameCount = grid.children.length;
+                if (frameCount === 0) {
+                    noFrames.style.display = 'block';
+                    grid.style.display = 'none';
+                } else {
+                    noFrames.style.display = 'none';
+                    grid.style.display = 'grid';
+                }
+            }
+        }
+        
+        function goToListView() {
+            window.location.href = '/entryScreen/0';
+        }
+        
+        function goToMonthView() {
+            window.location.href = '/static/calendar-monthly.html';
+        }
+        
+        function goToWeekView() {
+            window.location.href = '/static/calendar-weekly.html';
+        }
+        
+        function logout() {
+            if (confirm('로그아웃 하시겠습니까?')) {
+                localStorage.removeItem('token');
+                localStorage.removeItem('userData');
+                localStorage.removeItem('tokenCreatedAt');
+                window.location.href = '/static/index.html';
+            }
+        }
+        
+        // 키보드 단축키
+        document.addEventListener('keydown', function(e) {
+            if (e.altKey) {
+                switch(e.key) {
+                    case '1':
+                        e.preventDefault();
+                        goToListView();
+                        break;
+                    case '2':
+                        e.preventDefault();
+                        goToMonthView();
+                        break;
+                    case '3':
+                        e.preventDefault();
+                        goToWeekView();
+                        break;
+                    case '4':
+                        e.preventDefault();
+                        document.getElementById('iframe-count').focus();
+                        break;
+                    case 'c':
+                        e.preventDefault();
+                        showControlPanel();
+                        break;
+                }
+            }
+        });
+        
+        // Enter 키로 iframe 수/높이 적용
+        document.getElementById('iframe-count').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                updateIframes();
+            }
+        });
+        
+        document.getElementById('iframe-height').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                updateIframes();
+            }
+        });
+    </script>
+</body>
+</html> 

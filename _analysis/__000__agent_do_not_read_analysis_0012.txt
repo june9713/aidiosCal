@@ -1,0 +1,86 @@
+# 분석 정보 - 0012
+## 분석 일시: 2024년 현재  
+## 분석 내용: 개인일정 추가 버튼 기능 분석
+
+### 프로젝트 구조 분석
+- **메인 파일**: `static/js/main.js` (JavaScript 메인 로직)
+- **UI 요소**: 일정 추가 폼 내 버튼과 체크박스
+- **기능 위치**: 라인 1178-1290 (showAddScheduleForm 함수)
+
+### 핵심 함수/변수 분석
+
+#### 1. `showAddScheduleForm()` 함수
+- **목적**: 일정 추가 폼을 동적으로 생성하고 표시
+- **위치**: 라인 1178-1286
+- **주요 기능**:
+  - HTML 폼 동적 생성
+  - 이벤트 리스너 등록
+  - 프로젝트 목록 로드
+
+#### 2. `addPrivateSchedule()` 함수 (신규 추가)
+- **목적**: 개인일정 체크박스를 체크하고 폼 제출
+- **위치**: `cancelAddSchedule()` 함수 다음
+- **주요 기능**:
+  1. `schedule-individual` 체크박스 체크
+  2. `internal-add-schedule-form` 폼 submit 이벤트 발생
+
+#### 3. `handleAddSchedule()` 함수
+- **목적**: 실제 일정 추가 로직 처리
+- **위치**: 라인 1401-1487
+- **관련 필드**: `document.getElementById('schedule-individual').checked`
+
+### UI 컴포넌트 분석
+
+#### 개인일정 체크박스
+```html
+<input type="checkbox" id="schedule-individual" style="height: 20px;">
+```
+- **용도**: 개인일정 여부 설정
+- **DOM ID**: `schedule-individual`
+- **데이터 전송**: `individual` 필드로 서버 전송
+
+#### 버튼 구조 변경사항
+**이전**:
+```html
+<button type="sub_pivate">개인일정 추가</button>
+```
+
+**변경 후**:
+```html
+<button type="button" onclick="addPrivateSchedule()">개인일정 추가</button>
+```
+
+### 이벤트 플로우 분석
+
+1. **공개일정 추가 플로우**:
+   ```
+   공개일정 추가 버튼 클릭 → type="submit" → handleAddSchedule() 실행
+   ```
+
+2. **개인일정 추가 플로우** (신규):
+   ```
+   개인일정 추가 버튼 클릭 → addPrivateSchedule() 실행 
+   → schedule-individual 체크박스 체크 
+   → submit 이벤트 발생 → handleAddSchedule() 실행
+   ```
+
+### 데이터 전송 분석
+- **API 엔드포인트**: POST 요청 (일정 생성)
+- **개인일정 필드**: `individual: document.getElementById('schedule-individual').checked`
+- **서버 처리**: `individual` 필드에 따라 개인/공개 일정 구분
+
+### 주의사항
+1. **DOM 요소 존재 확인**: `getElementById()` 사용 시 null 체크 필요
+2. **이벤트 버블링**: submit 이벤트가 정상적으로 처리되는지 확인
+3. **폼 유효성 검사**: 기존 validation 로직이 정상 동작하는지 확인
+
+### 확장 가능성
+1. **시각적 피드백**: 버튼 클릭 시 체크박스 애니메이션 추가
+2. **상태 표시**: 개인일정 모드임을 사용자에게 명확히 표시
+3. **키보드 단축키**: 개인일정 추가를 위한 단축키 지원
+
+### 테스트 포인트
+1. 개인일정 추가 버튼 클릭 → 체크박스 자동 체크 확인
+2. 체크박스 체크 후 폼 제출 → 개인일정으로 저장 확인
+3. 기존 공개일정 추가 기능 → 정상 동작 확인
+4. 여러 번 클릭 → 중복 제출 방지 확인 

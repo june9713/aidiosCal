@@ -1,0 +1,82 @@
+# API 라우트 사용 현황 분석
+날짜: 2024-03-21
+분석자: AI Assistant
+
+## 1. 라우터 파일별 라우트 정의 현황
+
+### 1.1 auth.py
+```
+POST /register           # 회원가입
+GET /users/             # 사용자 목록 조회
+POST /token             # 로그인
+POST /token/refresh     # 토큰 갱신
+GET /users/me           # 현재 사용자 정보 조회
+```
+
+### 1.2 attachments.py
+```
+POST /schedules/{schedule_id}/attachments  # 첨부파일 업로드
+GET /getschedules/{schedule_id}           # 첨부파일 목록 조회
+DELETE /{attachment_id}                   # 첨부파일 삭제
+```
+
+### 1.3 schedules.py
+```
+POST /                                  # 일정 생성 (중복)
+GET /                                   # 일정 목록 조회
+GET /{schedule_id}                      # 일정 상세 조회
+PUT /{schedule_id}                      # 일정 수정 (중복)
+DELETE /{schedule_id}                   # 일정 삭제
+POST /{schedule_id}/complete            # 일정 완료 처리
+POST /{schedule_id}/share               # 일정 공유
+POST /{schedule_id}/attachments         # 첨부파일 업로드 (attachments.py와 중복)
+GET /attachments                        # 첨부파일 목록 조회 (attachments.py와 중복)
+POST /share                            # 공유 (중복)
+DELETE /attachments/{attachment_id}     # 첨부파일 삭제 (attachments.py와 중복)
+PUT /{schedule_id}/memo                # 메모 수정
+GET /{schedule_id}/children            # 하위 일정 조회
+```
+
+### 1.4 alarms.py
+```
+GET /                    # 알람 목록 조회
+POST /{alarm_id}/ack     # 알람 확인
+DELETE /{alarm_id}       # 알람 삭제
+DELETE /clear            # 모든 알람 삭제
+```
+
+## 2. 실제 사용 현황
+
+### 2.1 main.py에서 직접 정의된 라우트
+```
+POST /schedules/{schedule_id}/request-completion  # 일정 완료 요청
+PUT /schedules/{schedule_id}/memo                # 메모 수정
+```
+
+### 2.2 중복 및 문제점
+1. 일정 생성 라우트 중복 (schedules.py)
+2. 일정 수정 라우트 중복 (schedules.py)
+3. 첨부파일 관련 라우트가 schedules.py와 attachments.py에 분산
+4. 메모 수정 라우트가 schedules.py와 main.py에 중복
+5. 공유 기능 라우트 중복 (schedules.py)
+
+## 3. 개선 필요 사항
+
+### 3.1 라우트 통합
+1. 일정 관련 라우트를 schedules.py로 통합
+2. 첨부파일 관련 라우트를 attachments.py로 통합
+3. 메모 수정 라우트를 schedules.py로 통합
+4. 공유 기능 라우트를 하나로 통합
+
+### 3.2 라우트 구조 개선
+1. RESTful API 설계 원칙 준수
+2. 일관된 URL 패턴 사용
+3. 중복 라우트 제거
+4. 명확한 리소스 계층 구조 적용
+
+## 4. 권장 사항
+1. main.py의 직접 라우트 정의를 해당 라우터 파일로 이동
+2. 첨부파일 관련 기능을 attachments.py로 완전히 이전
+3. 일정 관련 기능을 schedules.py로 통합
+4. API 문서화 도구 도입 검토
+5. 라우트 테스트 코드 작성 

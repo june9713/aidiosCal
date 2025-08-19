@@ -1,0 +1,156 @@
+# 분석 0019 - 프로젝트 세션 관리 및 JavaScript 구조 분석
+
+## 프로젝트 개요
+aidiosCal2는 FastAPI + SQLAlchemy 백엔드와 순수 JavaScript 프론트엔드로 구성된 일정 관리 시스템입니다.
+
+## 세션 관리 아키텍처
+
+### 백엔드 인증 시스템 (FastAPI + JWT)
+
+#### 1. 핵심 파일들
+- `app/routers/auth.py`: 인증 관련 API 엔드포인트
+- `app/core/auth.py`: JWT 토큰 생성/검증 로직
+- `main.py`: 메인 애플리케이션 및 추가 알람 엔드포인트
+
+#### 2. JWT 토큰 설정
+```python
+SECRET_KEY = "your-secret-key"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 43200  # 30일
+```
+
+#### 3. 인증 플로우
+1. **로그인** (`/token`):
+   - 사용자명/비밀번호 검증
+   - JWT 토큰 생성
+   - HttpOnly 쿠키로 토큰 설정 (`session_token`)
+
+2. **세션 체크** (`/check-session`):
+   - 쿠키에서 토큰 추출
+   - 토큰 검증 및 사용자 정보 반환
+
+3. **토큰 갱신** (`/token/refresh`):
+   - 기존 토큰 검증 후 새 토큰 발급
+
+4. **로그아웃** (`/logout`):
+   - 쿠키 삭제
+
+#### 4. 쿠키 보안 설정
+```python
+response.set_cookie(
+    key="session_token",
+    value=access_token,
+    max_age=43200 * 60,  # 30일
+    httponly=True,       # XSS 방지
+    secure=False,        # HTTPS 환경에서 True
+    samesite="lax"       # CSRF 방지
+)
+```
+
+### 프론트엔드 세션 관리 (JavaScript)
+
+#### 1. 세션 데이터 저장
+- `localStorage.token`: JWT 토큰
+- `localStorage.userData`: 사용자 정보 JSON
+- `localStorage.tokenCreatedAt`: 토큰 생성 시간
+
+#### 2. 자동 로그인 프로세스
+```javascript
+// DOMContentLoaded 시 실행
+1. localStorage에서 토큰/사용자 데이터 확인
+2. JWT 토큰 만료 여부 체크 (isJWTTokenExpired)
+3. 만료 시 토큰 갱신 시도 (refreshToken)
+4. 유효한 토큰으로 사용자 프로필 조회 (fetchUserProfile)
+5. 인터페이스 표시 (showScheduleInterface)
+```
+
+#### 3. 토큰 갱신 메커니즘
+- 6시간마다 자동 갱신 체크
+- 토큰 만료 24시간 전 갱신 (shouldRefreshToken)
+- 실패 시 세션 초기화
+
+## JavaScript 구조 분석
+
+### 주요 모듈별 기능
+
+#### 1. 인증 관련 (`main.js`)
+- `handleLogin()`: 로그인 처리
+- `handleRegister()`: 회원가입 처리
+- `fetchUserProfile()`: 사용자 프로필 조회
+- `showScheduleInterface()`: **[복원됨]** 메인 인터페이스 표시
+- `clearSession()`: 세션 정리 및 로그아웃
+
+#### 2. 일정 관리
+- `main_loadSchedules()`: 일정 목록 로드 (페이징)
+- `renderSchedules()`: 일정 테이블 렌더링
+- `showAddScheduleForm()`: 일정 추가 폼
+- `editSchedule()`: 일정 편집
+- `toggleComplete()`: 완료 상태 토글
+
+#### 3. 알람 시스템
+- `loadAlarms()`: 알람 목록 로드
+- `startAlarmPolling()`: 10초마다 알람 폴링
+- `ackAlarm()`: 알람 확인 처리
+- `clearAllAlarms()`: 모든 알람 삭제
+
+#### 4. 파일 관리
+- `loadFilesForMainView()`: 파일 목록 조회
+- `uploadFilesToSchedule()`: 파일 업로드
+- `deleteAttachmentFromModal()`: 첨부파일 삭제
+
+### 특이사항 및 주의점
+
+#### 1. 함수 누락 문제
+- `showScheduleInterface` 함수가 백업 파일에만 존재했음
+- `fetchUserProfile` 에서 호출하여 ReferenceError 발생
+- 복원으로 문제 해결
+
+#### 2. 이중 라우팅 구조
+- `/entryScreen/{screen_id}`: 화면별 독립적 진입점
+- 로그인 성공 시 `/entryScreen/0`로 리다이렉트
+
+#### 3. 자동 새로고침
+- 10초마다 일정 자동 새로고침 (setupAutoRefresh)
+- 사용자 로그인 상태에서만 동작
+
+## 데이터베이스 구조
+
+### 주요 모델 (`app/models/models.py`)
+- `User`: 사용자 정보
+- `Schedule`: 일정 정보
+- `Alarm`: 알람 정보 (타입별 분류)
+- `Attachment`: 첨부파일 정보
+
+## API 엔드포인트 구조
+
+### 라우터별 분류
+- `auth.router`: 인증 관련
+- `schedules.router`: 일정 관리
+- `alarms.router`: 알람 관리
+- `attachments.router`: 파일 관리
+- `projects.router`: 프로젝트 관리
+- `quickmemos.router`: 빠른 메모
+
+### 보안 고려사항
+1. **토큰 만료 시간**: 30일은 과도할 수 있음
+2. **HTTPS 필요**: 프로덕션에서 secure=True 설정
+3. **CORS 설정**: 현재 모든 도메인 허용 (`allow_origins=["*"]`)
+
+## 브라우저 세션 유지 원리
+
+### 왜 브라우저를 닫았다 열어도 세션이 유지되는가?
+
+1. **HttpOnly 쿠키**: 
+   - JavaScript로 접근 불가능한 보안 쿠키
+   - 브라우저가 자동으로 관리 및 전송
+   - 만료 시간까지 지속 (30일)
+
+2. **localStorage 백업**:
+   - 토큰과 사용자 정보를 localStorage에도 저장
+   - 페이지 새로고침 시 즉시 복원 가능
+
+3. **자동 로그인 로직**:
+   - DOMContentLoaded 시 저장된 데이터로 자동 인증
+   - 실패 시 쿠키의 토큰으로 재시도
+
+이러한 이중 세션 관리로 사용자 경험을 최적화하면서도 보안을 유지합니다. 

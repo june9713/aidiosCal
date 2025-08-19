@@ -1,0 +1,83 @@
+# Analysis 0016: 월간 달력 레이아웃 정렬 문제 해결 분석
+
+## 문제 정의
+월간 달력에서 요일 헤더(weekday)와 날짜 셀(calendar-day)의 너비가 일치하지 않아 시각적 정렬이 맞지 않는 문제
+
+## 기술적 분석
+
+### 1. CSS Grid 구조 분석
+- **월간 달력 구조**:
+  ```
+  .calendar-grid
+  ├── .calendar-weekdays (요일 헤더)
+  └── .calendar-days (날짜 셀들)
+  ```
+
+### 2. 문제의 근본 원인
+- **Grid Gap 불일치**:
+  - `.calendar-weekdays`: `grid-template-columns: repeat(7, 1fr)` + gap 없음
+  - `.calendar-days`: `grid-template-columns: repeat(7, 1fr)` + `gap: 1px`
+  
+- **실제 너비 계산**:
+  - weekday: 전체 너비 ÷ 7
+  - calendar-day: (전체 너비 - 6px) ÷ 7 (gap 6px 제외)
+  - 결과: 각 셀의 실제 너비가 약 0.86px씩 차이
+
+### 3. 해결 방안의 효과
+**수정 전**:
+```css
+.calendar-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    background: #34495e;
+}
+.weekday {
+    border-right: 1px solid #2c3e50;
+}
+```
+
+**수정 후**:
+```css
+.calendar-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    background: #ddd;  /* gap 색상 */
+}
+.weekday {
+    background: #34495e;  /* 개별 셀 배경 */
+}
+```
+
+### 4. 기술적 개선점
+1. **Gap 일치화**: 동일한 grid gap으로 너비 계산 통일
+2. **배경색 계층화**: 
+   - 상위 컨테이너: gap 색상 (#ddd)
+   - 개별 셀: 실제 배경색 (#34495e)
+3. **Border 제거**: gap으로 구분선 대체하여 더 깔끔한 디자인
+
+### 5. 레이아웃 영향 분석
+- **정렬 개선**: weekday와 calendar-day 완벽 정렬
+- **시각적 일관성**: 전체 그리드의 통일된 간격
+- **반응형 호환**: 기존 모바일 스타일과 호환
+- **성능 영향**: 없음 (렌더링 비용 동일)
+
+### 6. 관련 컴포넌트
+- **HTML 구조**: `static/calendar-monthly.html`
+- **CSS 스타일**: `static/css/style.css` (라인 2190-2210)
+- **JavaScript**: `static/js/calendar.js` (렌더링 로직)
+
+### 7. 유사 문제 예방
+- **다른 달력 뷰**: 주간 달력은 다른 구조로 영향 없음
+- **테이블 레이아웃**: 향후 테이블 기반 레이아웃에서도 동일 원칙 적용 가능
+- **그리드 패턴**: 프로젝트 내 다른 grid 레이아웃에서도 gap 일치 원칙 적용
+
+### 8. 품질 보증
+- **브라우저 호환성**: CSS Grid는 현대 브라우저 모두 지원
+- **반응형 테스트**: 모바일/태블릿에서도 정렬 유지
+- **접근성**: 시각적 정렬 개선으로 사용자 경험 향상
+
+### 9. 주의사항
+- **캐시 새로고침**: CSS 변경 후 브라우저 캐시 클리어 필요
+- **모바일 최적화**: 작은 화면에서도 gap이 너무 크지 않도록 조정됨
+- **향후 수정**: weekday와 calendar-day는 항상 동일한 grid 설정 유지 필요 

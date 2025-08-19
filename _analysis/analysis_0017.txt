@@ -1,0 +1,164 @@
+# Analysis 0017: 브라우저 종료 후 로그인 상태 유지 시스템 분석
+
+## 문제 정의
+사용자가 브라우저를 종료하고 다시 접속할 때 로그인 상태가 유지되지 않아 재로그인을 해야 하는 불편함 발생
+
+## 기술적 분석
+
+### 1. 기존 인증 시스템 구조
+**JWT 토큰 기반 인증**:
+- 토큰 만료: 30일 (ACCESS_TOKEN_EXPIRE_MINUTES = 43200분)
+- 저장 위치: localStorage
+- 토큰 갱신: `/token/refresh` 엔드포인트 사용
+
+**기존 문제점**:
+- localStorage는 브라우저 종료 후에도 유지되지만 애플리케이션 로직에서 세션 복원 실패
+- 토큰 검증 및 갱신 로직이 페이지 로드 시점에서 불안정
+- 단일 저장소(localStorage)에만 의존하는 구조
+
+### 2. 해결 방안 설계
+
+#### A. 이중 저장 메커니즘
+**localStorage + HttpOnly Cookie**:
+```javascript
+// 프론트엔드: localStorage 우선 체크
+const token = localStorage.getItem('token');
+if (!token) {
+    // 쿠키 기반 세션 복원 시도
+    const sessionData = await fetch('/check-session');
+}
+```
+
+**백엔드: 쿠키 설정**:
+```python
+response.set_cookie(
+    key="session_token",
+    value=access_token,
+    max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    httponly=True,  # XSS 방지
+    samesite="lax"  # CSRF 방지
+)
+```
+
+#### B. 세션 복원 로직 강화
+**단계별 복원 과정**:
+1. localStorage에서 토큰 확인
+2. 토큰 없으면 쿠키에서 세션 복원 시도
+3. userData 파싱 및 window.currentUser 설정
+4. 토큰 만료 체크 및 필요시 갱신
+5. 사용자 프로필 갱신
+6. UI 상태 복원
+
+### 3. 보안 강화 요소
+
+#### A. HttpOnly 쿠키 보안
+- **XSS 방지**: JavaScript에서 접근 불가
+- **CSRF 방지**: SameSite=lax 설정
+- **Secure 전송**: HTTPS 환경에서 secure=True 설정 가능
+
+#### B. 토큰 검증 강화
+```python
+def decode_access_token(token: str) -> str:
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username = payload.get("sub")
+        if not username:
+            raise Exception("Token payload missing 'sub' field")
+        return username
+    except JWTError as e:
+        raise Exception(f"Invalid token: {str(e)}")
+```
+
+### 4. API 엔드포인트 구조
+
+#### A. 새 엔드포인트
+**GET /check-session**:
+- 쿠키에서 토큰 추출
+- 토큰 유효성 검증
+- 사용자 정보 반환
+
+**POST /logout**:
+- 쿠키 삭제 처리
+- 세션 종료
+
+#### B. 기존 엔드포인트 개선
+**POST /token**: 로그인 시 쿠키 설정 추가
+**POST /token/refresh**: 리프레시 시 쿠키 업데이트
+
+### 5. 프론트엔드 로직 개선
+
+#### A. DOMContentLoaded 이벤트 개선
+```javascript
+// 1. localStorage 체크
+// 2. 쿠키 세션 체크 (fallback)
+// 3. 토큰 검증 및 갱신
+// 4. 사용자 프로필 로드
+// 5. UI 상태 복원
+```
+
+#### B. 에러 처리 강화
+- 각 단계별 실패 시 적절한 fallback
+- 상세한 로깅으로 디버깅 지원
+- 사용자에게 명확한 상태 표시
+
+### 6. 성능 및 사용자 경험
+
+#### A. 세션 복원 속도
+- localStorage 우선 체크로 빠른 복원
+- 쿠키 체크는 fallback으로만 사용
+- 불필요한 API 호출 최소화
+
+#### B. 사용자 경험 개선
+- 브라우저 종료 후에도 자동 로그인
+- localStorage 손실 시에도 세션 유지
+- 토큰 만료 시 자동 갱신
+
+### 7. 호환성 및 확장성
+
+#### A. 브라우저 호환성
+- localStorage: 모든 현대 브라우저 지원
+- HttpOnly Cookie: 모든 브라우저 지원
+- SameSite 설정: 대부분의 현대 브라우저 지원
+
+#### B. 확장 가능성
+- 리프레시 토큰 분리 구조로 확장 가능
+- 다중 디바이스 세션 관리 확장 가능
+- OAuth2 표준과의 호환성 유지
+
+### 8. 모니터링 및 디버깅
+
+#### A. 로깅 시스템
+- 세션 복원 과정 전체 로깅
+- 토큰 갱신 및 검증 로깅
+- 에러 상황별 상세 로깅
+
+#### B. 디버깅 도구
+- 브라우저 개발자 도구에서 localStorage/쿠키 상태 확인
+- 네트워크 탭에서 API 호출 상태 확인
+- 콘솔에서 상세 로그 확인
+
+### 9. 향후 개선 방향
+
+#### A. 단기 개선
+- HTTPS 환경에서 secure 쿠키 설정
+- 토큰 만료 알림 시스템
+- 다중 탭 세션 동기화
+
+#### B. 장기 개선
+- 리프레시 토큰 분리
+- 디바이스별 세션 관리
+- SSO (Single Sign-On) 지원
+
+### 10. 테스트 케이스
+
+#### A. 기본 시나리오
+1. 정상 로그인 → 브라우저 종료 → 재접속
+2. localStorage 삭제 → 새로고침
+3. 쿠키 삭제 → 새로고침
+4. 토큰 만료 후 접속
+
+#### B. 에러 시나리오
+1. 네트워크 연결 불안정 상황
+2. 서버 다운 시 클라이언트 동작
+3. 잘못된 토큰 상황
+4. 사용자 계정 비활성화 상황 

@@ -1,0 +1,872 @@
+# aidiosCal2 프로젝트 - 알람 표시 문제 분석 및 해결 (Analysis #20)
+## 📅 작성일: 2024년 12월 29일
+
+## 🔍 문제 상황
+사용자로부터 "현재 알람이 표시되지 않는 이유를 확인해 달라"는 요청을 받았습니다.
+
+사용자가 제시한 가능한 원인:
+1. 실제 DB에 알람이 등록되지 않는다
+2. 알람을 표시하는 코드 자체가 실행에서 제외되고 있다
+3. 알람을 표시할 때 오류가 나고 있다
+4. 알람을 필터링하는 조건에 문제가 있다
+
+## 📊 문제 분석 과정
+
+### 1. 데이터베이스 상태 확인
+```sql
+sqlite3 sql_app.db "SELECT * FROM alarms ORDER BY created_at DESC LIMIT 10;"
+```
+**결과**: 알람 데이터가 정상적으로 등록되고 있음을 확인
+- 129개의 알람이 존재 (최신 ID: 129)
+- 다양한 타입: MEMO, COMPLETION_REQUEST, SCHEDULE_DUE
+- is_deleted = 0 (삭제되지 않음)
+- is_acked = 0 (미확인 상태)
+
+### 2. 테이블 구조 확인
+```sql
+sqlite3 sql_app.db ".schema alarms"
+```
+**결과**: 테이블 구조 정상, is_deleted 필드 존재 확인
+
+### 3. HTML UI 구조 확인
+- `static/entryScreen.html`에 `alarm-collapsible` 요소 정상 존재
+- `alarm-list` 요소 정상 구현
+- CSS 스타일 모두 구현됨
+
+### 4. JavaScript 코드 분석에서 핵심 문제 발견
+
+**🚨 변수 스코프 문제 (Critical Bug)**
+```javascript
+// loadAlarms 함수에서
+async function loadAlarms() {
+    const alarms = await response.json(); // ❌ 지역 변수로 선언
+    window.alarms = alarms || [];
+    renderAlarms();
+}
+
+// renderAlarms 함수에서
+function renderAlarms() {
+    const unackedCount = alarms.filter(...); // ❌ 전역 alarms 변수 참조
+    // 하지만 전역 alarms는 업데이트되지 않음!
+}
+```
+
+**문제점**:
+- `loadAlarms`에서 `const alarms`로 지역 변수 선언
+- 전역 `alarms` 변수는 업데이트되지 않음
+- `renderAlarms`에서 빈 전역 `alarms` 배열을 참조
+- 결과: "새로운 알람이 없습니다" 메시지만 표시
+
+## 🛠️ 해결 방법 구현
+
+### 1. 변수 스코프 문제 해결
+```javascript
+async function loadAlarms() {
+    try {
+        const response = await apiRequest('/alarms');
+        if (response.ok) {
+            const alarmsData = await response.json(); // 이름 변경
+            // 전역 alarms 변수 업데이트
+            alarms = alarmsData || [];
+            window.alarms = alarms; // window 객체에도 설정
+            console.log('Alarms loaded:', alarms.length, 'alarms');
+            renderAlarms();
+        }
+    } catch (error) {
+        console.error('Alarm load error:', error);
+    }
+}
+```
+
+### 2. renderAlarms 함수 개선
+```javascript
+function renderAlarms() {
+    // 전역 alarms 변수 사용 (window.alarms도 동일)
+    const currentAlarms = window.alarms || alarms || [];
+    console.log('Rendering alarms:', currentAlarms.length, 'total alarms');
+    
+    const unackedCount = currentAlarms.filter(alarm => !alarm.is_acked).length;
+    console.log('Unacked alarms count:', unackedCount);
+    
+    // 나머지 렌더링 로직...
+}
+```
+
+### 3. 디버깅 기능 추가
+```javascript
+window.debugAlarms = function() {
+    console.log('=== ALARM DEBUG INFO ===');
+    console.log('Global alarms variable:', alarms);
+    console.log('Window alarms variable:', window.alarms);
+    // 기타 디버깅 정보...
+};
+
+window.manualLoadAlarms = function() {
+    console.log('Manual alarm load triggered');
+    loadAlarms();
+};
+```
+
+## 🔧 기술적 세부사항
+
+### API 엔드포인트 분석
+- **GET /alarms**: 정상 구현됨 (main.py line 220-244)
+- **응답 형식**: 올바른 JSON 구조
+- **필터링**: `is_deleted == False` 조건 적용됨
+- **정렬**: `created_at.desc()` 적용됨
+
+### 폴링 시스템 분석
+```javascript
+// main.js line 333
+startAlarmPolling(); // 알람 폴링 시작
+
+// 30초마다 실행
+alarmPollingInterval = setInterval(loadAlarms, 30000);
+```
+
+### HTML 요소 확인
+```html
+<!-- static/entryScreen.html -->
+<details id="alarm-collapsible" class="alarm-collapsible">
+    <summary class="alarm-header-collapsible">
+        <h3>알람</h3>
+        <!-- 기타 헤더 요소들 -->
+    </summary>
+    <div class="alarm-container">
+        <div id="alarm-list">
+            <div class="no-alarms">새로운 알람이 없습니다.</div>
+        </div>
+    </div>
+</details>
+```
+
+## 📈 수정 전후 비교
+
+### 수정 전 (문제 상황)
+1. API에서 알람 데이터를 받아옴 ✅
+2. 지역 변수에 저장하고 window.alarms에만 저장 ❌
+3. 전역 alarms 변수는 빈 배열 상태 유지 ❌
+4. renderAlarms에서 빈 배열을 참조하여 "알람 없음" 표시 ❌
+
+### 수정 후 (해결 상황)
+1. API에서 알람 데이터를 받아옴 ✅
+2. 전역 alarms 변수와 window.alarms 모두 업데이트 ✅
+3. renderAlarms에서 실제 데이터 배열 참조 ✅
+4. 알람이 정상적으로 화면에 표시됨 ✅
+
+## 🧪 테스트 방법
+
+### 개발자 콘솔에서 확인
+```javascript
+// 디버깅 정보 확인
+debugAlarms();
+
+// 수동으로 알람 로드
+manualLoadAlarms();
+
+// 수동으로 알람 렌더링
+manualRenderAlarms();
+
+// 전역 변수 직접 확인
+console.log('Global alarms:', alarms);
+console.log('Window alarms:', window.alarms);
+```
+
+### 브라우저에서 확인사항
+1. 로그인 후 알람 영역에 실제 알람들이 표시되는지
+2. 미확인 알람 개수 인디케이터가 올바르게 표시되는지
+3. 알람 확인/삭제 버튼이 정상 동작하는지
+4. 30초마다 자동으로 알람이 업데이트되는지
+
+## 💡 학습된 교훈
+
+### 1. JavaScript 변수 스코프의 중요성
+- 전역 변수와 지역 변수의 명확한 구분 필요
+- 같은 이름의 변수 사용 시 스코프 충돌 주의
+- `const`로 선언된 지역 변수는 외부 스코프에 영향 없음
+
+### 2. 디버깅 도구의 필요성
+- 콘솔 로그를 통한 데이터 흐름 추적
+- 개발자 도구 친화적인 디버깅 함수 제공
+- 단계별 검증을 통한 문제 격리
+
+### 3. 상태 관리의 일관성
+- 데이터를 저장하는 방식의 일관성 유지
+- 여러 곳에서 같은 데이터를 참조할 때 동기화 문제 주의
+- window 객체와 전역 변수의 적절한 활용
+
+## 🔮 향후 개선 방안
+
+### 1. 상태 관리 라이브러리 도입 검토
+- Redux, Vuex 등 상태 관리 도구 활용
+- 중앙집중식 상태 관리로 일관성 확보
+
+### 2. TypeScript 도입 검토
+- 컴파일 타임 에러 검출
+- 변수 타입 안전성 확보
+
+### 3. 테스트 자동화
+- 단위 테스트로 이런 버그 사전 방지
+- 브라우저 자동화 테스트 도입
+
+## 📊 결과 요약
+- **근본 원인**: JavaScript 변수 스코프 문제
+- **해결 방법**: 전역 변수 올바른 업데이트 및 일관된 참조
+- **부가 개선**: 디버깅 기능 추가, 에러 처리 강화
+- **예상 효과**: 알람 시스템 완전 정상화
+
+---
+
+# 📑 외부 APK 웹앱용 API 문서 (External API Documentation)
+## 📅 추가일시: 2024년 12월 29일 - 오전 10:00
+
+## 🎯 개요
+aidiosCal2 시스템의 모든 기능을 외부 APK 웹앱에서 사용할 수 있도록 하는 REST API 문서입니다.
+업로드, 다운로드, 등록, 삭제, 조회, 수정 등 모든 CRUD 작업을 지원합니다.
+
+## 🔐 인증 방식
+모든 API는 JWT Bearer Token 인증을 사용합니다.
+
+### 헤더 포맷
+```
+Authorization: Bearer {access_token}
+Content-Type: application/json
+```
+
+## 🌐 Base URL
+```
+http://your-server-address:port
+```
+
+---
+
+## 📋 1. 인증 관련 API
+
+### 1.1 사용자 등록
+```http
+POST /register
+Content-Type: application/json
+
+{
+    "username": "string",
+    "name": "string", 
+    "password": "string"
+}
+```
+
+**응답 예시:**
+```json
+{
+    "id": 1,
+    "username": "john_doe",
+    "name": "John Doe",
+    "is_active": true
+}
+```
+
+### 1.2 로그인
+```http
+POST /token
+Content-Type: application/x-www-form-urlencoded
+
+username=john_doe&password=your_password
+```
+
+**응답 예시:**
+```json
+{
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "token_type": "bearer"
+}
+```
+
+### 1.3 사용자 정보 조회
+```http
+GET /users/me
+Authorization: Bearer {token}
+```
+
+**응답 예시:**
+```json
+{
+    "id": 1,
+    "username": "john_doe",
+    "name": "John Doe",
+    "is_active": true
+}
+```
+
+### 1.4 모든 사용자 목록 조회
+```http
+GET /users/?skip=0&limit=100
+Authorization: Bearer {token}
+```
+
+---
+
+## 📅 2. 일정 관리 API
+
+### 2.1 일정 생성
+```http
+POST /schedules/
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+    "project_name": "string",
+    "title": "string",
+    "content": "string (optional)",
+    "date": "2024-12-29T15:00:00",
+    "due_time": "2024-12-29T15:00:00",
+    "alarm_time": "2024-12-29T14:00:00",
+    "priority": "긴급|급함|곧임박|일반|거북이",
+    "individual": false,
+    "is_repeat": false,
+    "parent_id": null,
+    "parent_order": 0
+}
+```
+
+**응답 예시:**
+```json
+{
+    "id": 1,
+    "project_name": "프로젝트명",
+    "title": "일정명",
+    "content": "내용",
+    "date": "2024-12-29T15:00:00",
+    "due_time": "2024-12-29T15:00:00",
+    "alarm_time": "2024-12-29T14:00:00",
+    "priority": "일반",
+    "is_completed": false,
+    "individual": false,
+    "owner_id": 1,
+    "owner": {
+        "id": 1,
+        "name": "John Doe"
+    },
+    "created_at": "2024-12-29T10:00:00",
+    "attachments": []
+}
+```
+
+### 2.2 일정 목록 조회
+```http
+GET /schedules/?skip=0&limit=50&show_completed=true&completed_only=false&start_date=2024-01-01T00:00:00&end_date=2024-12-31T23:59:59
+Authorization: Bearer {token}
+```
+
+**파라미터:**
+- `skip`: 건너뛸 개수 (페이징)
+- `limit`: 조회할 최대 개수
+- `show_completed`: 완료된 일정 포함 여부
+- `completed_only`: 완료된 일정만 조회
+- `start_date`: 시작 날짜 (optional)
+- `end_date`: 종료 날짜 (optional)
+- `search_terms`: 검색어 (콤마로 구분, optional)
+- `exclude_terms`: 제외할 검색어 (optional)
+
+### 2.3 특정 일정 조회
+```http
+GET /schedules/{schedule_id}
+Authorization: Bearer {token}
+```
+
+### 2.4 일정 수정
+```http
+PUT /schedules/{schedule_id}
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+    "project_name": "string",
+    "title": "string",
+    "content": "string",
+    "date": "2024-12-29T15:00:00",
+    "due_time": "2024-12-29T15:00:00",
+    "alarm_time": "2024-12-29T14:00:00",
+    "priority": "일반",
+    "individual": false
+}
+```
+
+### 2.5 일정 삭제
+```http
+DELETE /schedules/{schedule_id}
+Authorization: Bearer {token}
+```
+
+### 2.6 일정 완료 토글
+```http
+POST /schedules/{schedule_id}/complete
+Authorization: Bearer {token}
+```
+
+### 2.7 일정 메모 수정
+```http
+PUT /schedules/{schedule_id}/memo
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+    "memo": "메모 내용"
+}
+```
+
+### 2.8 일정 공유
+```http
+POST /schedules/{schedule_id}/share
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+    "schedule_id": 1,
+    "shared_with_id": 2,
+    "memo": "공유 메모 (optional)"
+}
+```
+
+### 2.9 엑셀 내보내기
+```http
+GET /schedules/export/excel?start_date=2024-01-01&end_date=2024-12-31&include_individual=false&export_by_project=true
+Authorization: Bearer {token}
+```
+
+**파라미터:**
+- `start_date`: 시작 날짜
+- `end_date`: 종료 날짜
+- `include_individual`: 개인일정 포함 여부
+- `export_by_project`: 프로젝트별 분류
+- `export_by_author`: 작성자별 분류
+- `export_by_month`: 월별 분류
+- `export_by_week`: 주별 분류
+- `export_by_priority`: 우선순위별 분류
+
+---
+
+## 🔔 3. 알람 관리 API
+
+### 3.1 알람 목록 조회
+```http
+GET /alarms/?skip=0&limit=100
+Authorization: Bearer {token}
+```
+
+**응답 예시:**
+```json
+[
+    {
+        "id": 1,
+        "user_id": 1,
+        "type": "SCHEDULE_DUE|MEMO|COMPLETION_REQUEST|SHARE|NEW_SCHEDULE",
+        "message": "알람 메시지",
+        "schedule_id": 1,
+        "is_acked": false,
+        "is_deleted": false,
+        "created_at": "2024-12-29T10:00:00",
+        "acked_at": null
+    }
+]
+```
+
+### 3.2 알람 확인 처리
+```http
+POST /alarms/ack_alarms/{alarm_id}/ack
+Authorization: Bearer {token}
+```
+
+### 3.3 알람 삭제
+```http
+DELETE /alarms/delete_alarms/{alarm_id}
+Authorization: Bearer {token}
+```
+
+### 3.4 모든 알람 삭제
+```http
+DELETE /alarms/clear_alarms/clear
+Authorization: Bearer {token}
+```
+
+---
+
+## 📎 4. 첨부파일 관리 API
+
+### 4.1 모든 첨부파일 조회
+```http
+GET /attachments/
+Authorization: Bearer {token}
+```
+
+### 4.2 첨부파일 검색
+```http
+GET /attachments/search?start_date=2024-01-01&end_date=2024-12-31&filename_pattern=*.pdf&uploader_id=1&project_name=프로젝트명&schedule_title=일정명
+Authorization: Bearer {token}
+```
+
+**파라미터:**
+- `start_date`: 시작 날짜 (YYYY-MM-DD)
+- `end_date`: 종료 날짜 (YYYY-MM-DD)
+- `filename_pattern`: 파일명 패턴 (와일드카드 * 지원)
+- `uploader_id`: 업로더 ID
+- `project_name`: 프로젝트명
+- `schedule_title`: 일정 제목
+
+### 4.3 특정 일정에 파일 업로드
+```http
+POST /attachments/schedules/{schedule_id}/attachments
+Authorization: Bearer {token}
+Content-Type: multipart/form-data
+
+files: [File1, File2, ...]
+```
+
+### 4.4 첨부파일 삭제
+```http
+DELETE /attachments/{attachment_id}
+Authorization: Bearer {token}
+```
+
+### 4.5 첨부파일 이름 변경
+```http
+PUT /attachments/{attachment_id}/rename
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+    "filename": "새로운_파일명.pdf"
+}
+```
+
+### 4.6 다중 파일 다운로드 (ZIP)
+```http
+POST /attachments/download/zip
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+    "file_ids": [1, 2, 3, 4]
+}
+```
+
+### 4.7 다중 파일 삭제
+```http
+DELETE /attachments/delete/batch
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+    "file_ids": [1, 2, 3, 4]
+}
+```
+
+---
+
+## 📂 5. 프로젝트 관리 API
+
+### 5.1 프로젝트 목록 조회
+```http
+GET /projects/
+```
+
+**응답 예시:**
+```json
+[
+    {
+        "name": "프로젝트 A"
+    },
+    {
+        "name": "프로젝트 B"
+    }
+]
+```
+
+### 5.2 프로젝트 추가
+```http
+POST /projects/
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+    "name": "새 프로젝트명"
+}
+```
+
+---
+
+## 📝 6. 퀵메모 관리 API
+
+### 6.1 퀵메모 생성
+```http
+POST /api/quickmemos
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+    "content": "퀵메모 내용"
+}
+```
+
+### 6.2 퀵메모 목록 조회
+```http
+GET /api/quickmemos?skip=0&limit=100
+Authorization: Bearer {token}
+```
+
+**응답 예시:**
+```json
+[
+    {
+        "id": 1,
+        "content": "퀵메모 내용",
+        "author_id": 1,
+        "is_completed": false,
+        "is_deleted": false,
+        "created_at": "2024-12-29T10:00:00"
+    }
+]
+```
+
+### 6.3 퀵메모 완료 토글
+```http
+PUT /api/quickmemos/{quickmemo_id}/complete
+Authorization: Bearer {token}
+```
+
+### 6.4 퀵메모 수정
+```http
+PUT /api/quickmemos/{quickmemo_id}
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+    "content": "수정된 퀵메모 내용"
+}
+```
+
+### 6.5 퀵메모 삭제
+```http
+DELETE /api/quickmemos/{quickmemo_id}
+Authorization: Bearer {token}
+```
+
+---
+
+## 🚨 에러 응답 형식
+
+### 일반적인 에러 응답
+```json
+{
+    "detail": "에러 메시지"
+}
+```
+
+### 주요 HTTP 상태 코드
+- `200`: 성공
+- `201`: 생성 성공
+- `400`: 잘못된 요청
+- `401`: 인증 실패
+- `403`: 권한 없음
+- `404`: 리소스 없음
+- `422`: 유효성 검사 실패
+- `500`: 서버 에러
+
+## 🔄 사용 예시 (JavaScript)
+
+### 인증 토큰 설정
+```javascript
+const API_BASE_URL = 'http://your-server:port';
+let accessToken = '';
+
+// 로그인
+async function login(username, password) {
+    const response = await fetch(`${API_BASE_URL}/token`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`
+    });
+    
+    if (response.ok) {
+        const data = await response.json();
+        accessToken = data.access_token;
+        return data;
+    }
+    throw new Error('Login failed');
+}
+
+// API 요청 헬퍼
+async function apiRequest(endpoint, options = {}) {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        ...options,
+        headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            ...options.headers
+        }
+    });
+    
+    if (!response.ok) {
+        throw new Error(`API Error: ${response.status}`);
+    }
+    
+    return response.json();
+}
+```
+
+### 일정 관리 예시
+```javascript
+// 일정 생성
+async function createSchedule(scheduleData) {
+    return await apiRequest('/schedules/', {
+        method: 'POST',
+        body: JSON.stringify(scheduleData)
+    });
+}
+
+// 일정 목록 조회
+async function getSchedules(params = {}) {
+    const queryString = new URLSearchParams(params).toString();
+    return await apiRequest(`/schedules/?${queryString}`);
+}
+
+// 일정 수정
+async function updateSchedule(scheduleId, scheduleData) {
+    return await apiRequest(`/schedules/${scheduleId}`, {
+        method: 'PUT',
+        body: JSON.stringify(scheduleData)
+    });
+}
+
+// 일정 삭제
+async function deleteSchedule(scheduleId) {
+    return await apiRequest(`/schedules/${scheduleId}`, {
+        method: 'DELETE'
+    });
+}
+```
+
+### 파일 업로드 예시
+```javascript
+async function uploadFiles(scheduleId, files) {
+    const formData = new FormData();
+    for (const file of files) {
+        formData.append('files', file);
+    }
+    
+    const response = await fetch(`${API_BASE_URL}/attachments/schedules/${scheduleId}/attachments`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${accessToken}`
+        },
+        body: formData
+    });
+    
+    return response.json();
+}
+```
+
+## 🎯 APK 웹앱 개발 가이드
+
+### 1. 인증 플로우
+1. 사용자 로그인 → 토큰 획득
+2. 토큰을 로컬 스토리지에 저장
+3. 모든 API 요청에 토큰 포함
+
+### 2. 실시간 업데이트
+- 30초마다 알람 조회 (`GET /alarms/`)
+- 10초마다 일정 목록 새로고침 (`GET /schedules/`)
+
+### 3. 오프라인 지원
+- 중요 데이터는 로컬 캐싱
+- 온라인 상태 복원 시 동기화
+
+### 4. 파일 처리
+- 대용량 파일 업로드 시 청크 단위 처리 고려
+- 다운로드 파일은 적절한 MIME 타입 설정
+
+## 📈 성능 최적화 팁
+
+### 1. 페이징 활용
+```javascript
+// 일정 목록을 페이지별로 로드
+const pageSize = 50;
+let currentPage = 0;
+
+async function loadMoreSchedules() {
+    const schedules = await getSchedules({
+        skip: currentPage * pageSize,
+        limit: pageSize
+    });
+    currentPage++;
+    return schedules;
+}
+```
+
+### 2. 검색 최적화
+```javascript
+// 검색어와 필터를 조합하여 정확한 결과 획득
+async function searchSchedules(searchTerm, filters = {}) {
+    return await getSchedules({
+        search_terms: searchTerm,
+        search_in_title: true,
+        search_in_content: true,
+        search_in_memo: true,
+        ...filters
+    });
+}
+```
+
+### 3. 캐싱 전략
+```javascript
+// 프로젝트 목록은 한 번만 로드하고 캐시
+let projectsCache = null;
+async function getProjectsWithCache() {
+    if (!projectsCache) {
+        projectsCache = await apiRequest('/projects/');
+    }
+    return projectsCache;
+}
+```
+
+---
+
+## 🔗 참고 정보
+
+### 데이터베이스 스키마
+- **schedules**: 일정 정보
+- **alarms**: 알람 정보  
+- **attachments**: 첨부파일 정보
+- **users**: 사용자 정보
+- **quickmemos**: 퀵메모 정보
+
+### 파일 저장 경로
+- 업로드된 파일: `./static/uploads/`
+- 프로젝트 정보: `./static/json/projects.json`
+
+### 로그 파일
+- 애플리케이션 로그: `./app.log`
+
+### 시간대 처리
+- 서버는 한국 시간(KST)으로 처리
+- 모든 날짜/시간은 ISO 8601 형식 사용
+- 예: `2024-12-29T15:30:00`
+
+## 📱 APK 개발시 주의사항
+
+### 1. 네트워크 보안
+- HTTPS 사용 권장
+- 토큰 저장 시 암호화 고려
+- API 통신 실패 시 재시도 로직 구현
+
+### 2. 사용자 경험
+- 로딩 상태 표시
+- 오프라인 모드 지원
+- 에러 메시지 사용자 친화적으로 표시
+
+### 3. 데이터 동기화
+- 충돌 해결 전략 수립
+- 마지막 수정 시간 기반 동기화
+- 사용자 권한별 데이터 접근 제어
+
+이 API 문서를 참고하여 외부 APK 웹앱에서 aidiosCal2의 모든 기능을 완전히 활용할 수 있습니다. 

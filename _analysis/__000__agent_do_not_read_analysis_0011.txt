@@ -1,0 +1,98 @@
+# 분석 정보 0011 - 토큰 관리 시스템 및 인증 플로우 분석
+
+## 프로젝트 구조 - 인증 관련
+```
+static/js/
+├── main.js           # 메인 인증 로직 (로그인, 토큰 관리)
+├── calendar.js       # 달력 기능 (토큰 기반 API 호출)
+└── schedule.js       # 일정 관리
+```
+
+## 토큰 관리 시스템 상세 분석
+
+### 1. 토큰 저장 구조
+- **token**: JWT access token
+- **refresh_token**: 토큰 갱신용
+- **tokenCreatedAt**: 토큰 생성 시간 (만료 체크용)
+- **userData**: 사용자 정보
+- **username**: 사용자명
+
+### 2. 인증 플로우
+```
+1. 로그인 (handleLogin)
+   ↓
+2. 토큰 저장 + tokenCreatedAt 저장
+   ↓
+3. entryScreen.html로 리다이렉트
+   ↓
+4. 페이지 로드 시 토큰 만료 체크 (isTokenExpired)
+   ↓
+5. 유효하면 fetchUserProfile 호출
+   ↓
+6. API 요청 시 Authorization Bearer 헤더 사용
+```
+
+### 3. 토큰 만료 체크 로직
+```javascript
+function isTokenExpired() {
+    const tokenCreatedAt = localStorage.getItem('tokenCreatedAt');
+    if (!tokenCreatedAt) return true;  // ⚠️ 핵심: 없으면 만료로 판단
+    
+    const now = Date.now();
+    const tokenAge = now - parseInt(tokenCreatedAt);
+    const oneMonth = 30 * 24 * 60 * 60 * 1000;
+    
+    return tokenAge > oneMonth;
+}
+```
+
+### 4. 주요 함수 역할
+
+#### handleLogin() (main.js:177-198)
+- 로그인 요청 처리
+- 성공 시 토큰 및 관련 정보 localStorage 저장
+- **수정사항**: tokenCreatedAt 저장 추가
+
+#### clearSession() (main.js:115-127)
+- 로그아웃 시 모든 토큰 정보 삭제
+- 폴링 인터벌 정리
+- 페이지 새로고침
+
+#### loadSchedules() (calendar.js:52-72)
+- 일정 데이터 API 호출
+- 토큰 기반 인증
+- **수정사항**: 토큰 없을 시 로그인 페이지 리다이렉트
+
+### 5. 문제였던 시나리오
+```
+1. 사용자 로그아웃 (clearSession 호출)
+2. 재로그인 (handleLogin)
+3. tokenCreatedAt 누락으로 저장됨
+4. calendar 페이지 접속
+5. DOMContentLoaded 이벤트에서 isTokenExpired() 실행
+6. tokenCreatedAt이 없어서 토큰 만료로 판단
+7. clearSession() 호출하여 토큰 삭제
+8. loadSchedules()에서 토큰 없음 에러 발생
+```
+
+### 6. 에러 처리 패턴
+- **401 Unauthorized**: clearSession() 호출하여 로그아웃 처리
+- **토큰 없음**: 로그인 페이지로 리다이렉트
+- **네트워크 오류**: 콘솔 로그 후 계속 진행
+
+### 7. 보안 고려사항
+- 토큰 만료 시간: 30일
+- 토큰 갱신: 24시간마다 자동
+- localStorage 사용 (XSS 취약점 주의 필요)
+
+### 8. 개선 권장사항
+1. **토큰 검증 강화**: API 응답에서 401 시 자동 로그아웃
+2. **에러 피드백**: 사용자에게 명확한 에러 메시지 제공
+3. **토큰 보안**: httpOnly 쿠키 사용 고려
+4. **자동 갱신**: 토큰 만료 직전 자동 갱신 로직
+
+### 9. 테스트 시나리오
+- [ ] 정상 로그인 → 달력 접속
+- [ ] 로그아웃 → 재로그인 → 달력 접속
+- [ ] 토큰 만료 후 API 호출
+- [ ] 네트워크 오류 시 처리 

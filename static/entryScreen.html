@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>일정 관리 시스템</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div id="auth-container">
+        <details id="alarm-collapsible" class="alarm-collapsible">
+            <summary class="alarm-header-collapsible">
+                <button onclick="showAddScheduleForm()" class="add-schedule-btn">
+                    <i class="fas fa-plus"></i> 일정
+                </button>
+                <button onclick="showQuickNoteForm()" class="add-qicknote-btn">
+                    <i class="fas fa-sticky-note"></i> 퀵노트
+                </button>
+                <div class="user-info"></div>
+                
+                <h3>알람</h3>
+                <div class="alarm-header-actions">
+                    <span class="toggle-icon">▼&nbsp;&nbsp;&nbsp;</span>
+                    <button onclick="clearAllAlarms()" class="clear-all-btn">
+                        <i class="fas fa-trash-alt"></i>삭제
+                    </button>
+                    
+                </div>
+            </summary>
+            <div class="alarm-container">
+                <div id="alarm-list"><div class="no-alarms">새로운 알람이 없습니다.</div></div>
+            </div>
+        </details>
+        <details class="controls-collapsible">
+            <summary class="controls-header">
+                <h3>&nbsp;&nbsp;&nbsp;기능<span id="filtered-users-display"></span></h3>
+                <span class="toggle-icon">▼&nbsp;&nbsp;&nbsp;</span>
+            </summary>
+            <div class="controls">
+                <div class="search-container">
+                    <input class="search-container-input" type="text" id="search-input" placeholder="검색어를 입력하세요...">
+                    <button class="search-container-btn" onclick="searchSchedules()">
+                        <i class="fas fa-search"></i> 검색
+                    </button>
+                </div>
+                <div class="user-filter-container">
+                    <div class="user-filter-header">&nbsp;&nbsp;&nbsp;사용자 필터</div><div id="user-checkboxes"><div class="user-checkbox">
+                <input type="checkbox" id="user-all" value="all" onchange="toggleAllUsersFilter(this.checked)" checked="">
+                <label for="user-all">All</label>
+                </div></div>
+            </div>
+                <button id="quickMemo-view-btn" class="view-btn">
+                    <i class="fas fa-eye"></i> 퀵노트 보기
+                </button>
+                <button id="total-view-btn" class="view-btn">
+                    <i class="fas fa-th-list"></i> 모아 보기
+                </button>
+                <button id="month-view-btn" class="view-btn">
+                    <i class="fas fa-calendar-alt"></i> 월간 보기
+                </button>
+                <button id="week-view-btn" class="view-btn">
+                    <i class="fas fa-calendar-week"></i> 주간 보기
+                </button>   
+                <button class="file-view-btn" onclick="toggleFileView()">
+                    <i class="fas fa-paperclip"></i> 첨부파일 보기
+                </button> 
+                <button class="user-filter-header" onclick="toggleCompletedFilter()">
+                    <i class="fas fa-eye-slash"></i> 완료 일정 숨기기
+                </button>
+                
+                <button onclick="exportToExcel()" class="excel-export-btn">
+                    <i class="fas fa-file-excel"></i> 엑셀로 출력
+                </button>
+                <button onclick="logout()" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i> 로그아웃
+                </button>
+                
+            </div>
+        </details>
+        
+
+        <div class="schedule-container" id="schedule-container">
+            <table class="schedule-table">
+                <thead class="schedule-table-header">
+                    <tr>
+                        <th>날짜</th>
+                        <th>프로젝트</th>
+                        <th>작성자</th>
+                        <th>제목</th>
+                    </tr>
+                </thead>
+                <tbody id="schedule-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 일정 상세 모달 -->
+    <div id="schedule-detail-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="width: 100%; height: 100%; display: none;">
+            <div class="modal-header">
+                <h3>일정 상세</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div id="schedule-detail-content"></div>
+        </div>
+    </div>
+
+    <!-- 일정 추가/수정 모달 -->
+    <div id="schedule-modal" class="schedule-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="schedule-modal-title">일정 추가</h2>
+                <button class="close-button" onclick="closeScheduleModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="schedule-form" class="modal-form">
+                    <!-- 폼 내용은 JavaScript에서 동적으로 생성됩니다 -->
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 메모 모달 -->
+    <div id="memo-modal" class="memo-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>메모</h2>
+                <button class="close-button" onclick="closeMemoModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="memo-form" class="modal-form">
+                    <div class="form-group">
+                        <label for="memo-content">메모 내용</label>
+                        <textarea id="memo-content" rows="10" required></textarea>
+                    </div>
+                    <div class="form-buttons">
+                        <button type="submit">저장</button>
+                        <button type="button" onclick="closeMemoModal()">취소</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 엑셀 출력 설정 모달 -->
+    <div id="excel-export-modal" class="excel-export-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-file-excel"></i> 엑셀 출력 설정</h2>
+                <button class="close-button" onclick="closeExcelExportModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="excel-export-form" class="modal-form">
+                    <!-- 날짜 설정 -->
+                    <div class="form-section">
+                        <h3>📅 날짜 범위</h3>
+                        <div class="date-control-group">
+                            <div class="date-inputs">
+                                <div class="form-group">
+                                    <label for="export-start-date">시작 날짜</label>
+                                    <input type="datetime-local" id="export-start-date" required>
+                                    <div class="quick-date-buttons">
+                                        <button type="button" onclick="adjustDateRange(-30, 'start')">1개월전</button>
+                                        <button type="button" onclick="adjustDateRange(-7, 'start')">1주전</button>
+                                        <button type="button" onclick="adjustDateRange(7, 'start')">1주후</button>
+                                        <button type="button" onclick="adjustDateRange(30, 'start')">1개월후</button>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="export-end-date">종료 날짜</label>
+                                    <input type="datetime-local" id="export-end-date" required>
+                                    <div class="quick-date-buttons">
+                                        <button type="button" onclick="adjustDateRange(-30, 'end')">1개월전</button>
+                                        <button type="button" onclick="adjustDateRange(-7, 'end')">1주전</button>
+                                        <button type="button" onclick="adjustDateRange(7, 'end')">1주후</button>
+                                        <button type="button" onclick="adjustDateRange(30, 'end')">1개월후</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 개인일정 설정 -->
+                    <div class="form-section">
+                        <h3>👤 개인일정</h3>
+                        <div class="checkbox-group">
+                            <label>
+                                <input type="radio" name="individual-schedule" value="exclude" checked>
+                                개인일정 제외
+                            </label>
+                            <label>
+                                <input type="radio" name="individual-schedule" value="include">
+                                개인일정 포함
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- 출력 옵션 -->
+                    <div class="form-section">
+                        <h3>📊 출력 옵션</h3>
+                        <div class="checkbox-group">
+                            <label>
+                                <input type="checkbox" id="export-by-project" value="project">
+                                프로젝트별 탭을 포함한 별도의 파일 생성
+                            </label>
+                            <label>
+                                <input type="checkbox" id="export-by-author" value="author">
+                                작성자별 탭을 포함한 별도의 파일 생성
+                            </label>
+                            <label>
+                                <input type="checkbox" id="export-by-month" value="month">
+                                월별 탭을 포함한 별도의 파일 생성
+                            </label>
+                            <label>
+                                <input type="checkbox" id="export-by-week" value="week">
+                                주별 탭을 포함한 별도의 파일 생성
+                            </label>
+                            <label>
+                                <input type="checkbox" id="export-by-priority" value="priority">
+                                우선순위별 탭을 포함한 별도의 파일 생성
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-buttons">
+                        <button type="submit" class="export-btn">
+                            <i class="fas fa-download"></i> 엑셀 파일 생성
+                        </button>
+                        <button type="button" onclick="closeExcelExportModal()">취소</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/main.js"></script>
+    <script src="/static/js/schedule.js"></script>
+    <script src="/static/js/calendar.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script>
+        // URL 경로에서 고유 ID 추출
+        function getScreenId() {
+            const pathSegments = window.location.pathname.split('/');
+            const lastSegment = pathSegments[pathSegments.length - 1];
+            // 숫자인지 확인하고, 숫자가 아니면 기본값 '0' 사용
+            return /^\d+$/.test(lastSegment) ? lastSegment : '0';
+        }
+
+        // 화면별 고유 localStorage 키 생성
+        function getStorageKey(key) {
+            const screenId = getScreenId();
+            return `entryScreen_${screenId}_${key}`;
+        }
+
+        // 기존 localStorage 함수들을 오버라이드
+        const originalSetItem = localStorage.setItem;
+        const originalGetItem = localStorage.getItem;
+        const originalRemoveItem = localStorage.removeItem;
+
+        // 설정 관련 키들만 화면별로 분리
+        const screenSpecificKeys = [
+            'showCompleted',
+            'selectedUsers', 
+            'completedOnly',
+            'searchTerm',
+            'currentPage',
+            'userCheckboxStates'
+        ];
+
+        function isScreenSpecificKey(key) {
+            return screenSpecificKeys.some(specificKey => key.includes(specificKey));
+        }
+
+        // localStorage.setItem 오버라이드
+        localStorage.setItem = function(key, value) {
+            if (isScreenSpecificKey(key)) {
+                const screenKey = getStorageKey(key);
+                originalSetItem.call(this, screenKey, value);
+            } else {
+                originalSetItem.call(this, key, value);
+            }
+        };
+
+        // localStorage.getItem 오버라이드
+        localStorage.getItem = function(key) {
+            if (isScreenSpecificKey(key)) {
+                const screenKey = getStorageKey(key);
+                return originalGetItem.call(this, screenKey);
+            } else {
+                return originalGetItem.call(this, key);
+            }
+        };
+
+        // localStorage.removeItem 오버라이드
+        localStorage.removeItem = function(key) {
+            if (isScreenSpecificKey(key)) {
+                const screenKey = getStorageKey(key);
+                originalRemoveItem.call(this, screenKey);
+            } else {
+                originalRemoveItem.call(this, key);
+            }
+        };
+
+        // 화면 ID 표시
+        function displayScreenId() {
+            const screenId = getScreenId();
+            if (screenId !== '0') {
+                // 페이지 제목에 화면 번호 추가
+                document.title = `일정 관리 시스템 - 화면 ${screenId}`;
+                
+                // 사용자 정보 영역에 화면 번호 표시
+                const userInfo = document.querySelector('.user-info');
+                if (userInfo) {
+                    const originalText = userInfo.textContent;
+                    userInfo.textContent = `${originalText} [화면 ${screenId}]`;
+                }
+            } else {
+                // 화면 ID가 0인 경우 모아보기로 표시
+                document.title = `일정 관리 시스템 - 모아보기`;
+                
+                const userInfo = document.querySelector('.user-info');
+                if (userInfo) {
+                    const originalText = userInfo.textContent;
+                    userInfo.textContent = `${originalText} [모아보기]`;
+                }
+            }
+        }
+
+        // 필터 상태 저장 함수
+        function saveFilterSettings() {
+            try {
+                // main.js의 전역 변수들 저장
+                if (typeof showCompleted !== 'undefined') {
+                    localStorage.setItem('showCompleted', JSON.stringify(showCompleted));
+                }
+                if (typeof completedOnly !== 'undefined') {
+                    localStorage.setItem('completedOnly', JSON.stringify(completedOnly));
+                }
+                if (typeof selectedUsers !== 'undefined') {
+                    localStorage.setItem('selectedUsers', JSON.stringify(Array.from(selectedUsers)));
+                }
+                if (typeof currentPage !== 'undefined') {
+                    localStorage.setItem('currentPage', JSON.stringify(currentPage));
+                }
+                
+                // 검색어 저장
+                const searchInput = document.getElementById('search-input');
+                if (searchInput && searchInput.value) {
+                    localStorage.setItem('searchTerm', searchInput.value);
+                }
+                
+                // 현재 활성화된 사용자 필터 찾기
+                const userCheckboxes = document.querySelectorAll('#user-checkboxes input[type="checkbox"]');
+                let activatedFilter = null;
+                
+                userCheckboxes.forEach(cb => {
+                    if (cb.checked) {
+                        if (cb.id === 'user-all') {
+                            activatedFilter = { activated_id: 'user-all' };
+                        } else {
+                            // 사용자 이름 추출
+                            const label = document.querySelector(`label[for="${cb.id}"]`);
+                            const userName = label ? label.textContent.trim() : cb.id;
+                            activatedFilter = { 
+                                activated_id: cb.id,
+                                activated_name: userName 
+                            };
+                        }
+                    }
+                });
+                
+                // 아무것도 체크되지 않은 경우 기본값
+                if (!activatedFilter) {
+                    activatedFilter = { activated_id: 'user-all' };
+                }
+                
+                localStorage.setItem('userCheckboxStates', JSON.stringify(activatedFilter));
+                console.log(activatedFilter);
+                console.log('필터 설정 저장됨 - 화면 ID:', getScreenId());
+            } catch (error) {
+                console.error('필터 설정 저장 오류:', error);
+            }
+        }
+
+        // 필터 상태 복원 함수
+        function loadFilterSettings() {
+            try {
+                // main.js 전역 변수들 복원
+                const savedShowCompleted = localStorage.getItem('showCompleted');
+                if (savedShowCompleted !== null) {
+                    window.showCompleted = JSON.parse(savedShowCompleted);
+                }
+                
+                const savedCompletedOnly = localStorage.getItem('completedOnly');
+                if (savedCompletedOnly !== null) {
+                    window.completedOnly = JSON.parse(savedCompletedOnly);
+                }
+                
+                const savedSelectedUsers = localStorage.getItem('selectedUsers');
+                if (savedSelectedUsers !== null) {
+                    const userArray = JSON.parse(savedSelectedUsers);
+                    window.selectedUsers = new Set(userArray);
+                }
+                
+                const savedCurrentPage = localStorage.getItem('currentPage');
+                if (savedCurrentPage !== null) {
+                    window.currentPage = JSON.parse(savedCurrentPage);
+                }
+                
+                // 검색어 복원
+                const savedSearchTerm = localStorage.getItem('searchTerm');
+                const searchInput = document.getElementById('search-input');
+                if (savedSearchTerm && searchInput) {
+                    searchInput.value = savedSearchTerm;
+                }
+                
+                console.log('필터 설정 복원됨 - 화면 ID:', getScreenId());
+                
+                // UI 상태도 복원
+                setTimeout(() => {
+                    restoreUIState();
+                }, 100);
+                
+            } catch (error) {
+                console.error('필터 설정 복원 오류:', error);
+            }
+        }
+
+        // 필터된 사용자 표시 업데이트 함수
+        function updateFilteredUsersDisplay() {
+            try {
+                const displayElement = document.getElementById('filtered-users-display');
+                if (!displayElement) return;
+                
+                const userCheckboxes = document.querySelectorAll('#user-checkboxes input[type="checkbox"]:not(#user-all)');
+                const checkedUsers = [];
+                
+                // "모든 사용자"가 체크되어 있는지 확인
+                const allUsersCheckbox = document.getElementById('user-all');
+                if (allUsersCheckbox && allUsersCheckbox.checked) {
+                    displayElement.textContent = '';
+                    return;
+                }
+                
+                // 체크된 개별 사용자들 찾기
+                userCheckboxes.forEach(checkbox => {
+                    if (checkbox.checked) {
+                        const label = document.querySelector(`label[for="${checkbox.id}"]`);
+                        if (label) {
+                            // 레이블에서 이름 부분만 추출 (괄호 앞 부분)
+                            const labelText = label.textContent.trim();
+                            const nameMatch = labelText.match(/^([^(]+)/);
+                            if (nameMatch) {
+                                const userName = nameMatch[1].trim();
+                                checkedUsers.push(userName);
+                            }
+                        }
+                    }
+                });
+                
+                // 필터된 사용자 이름들을 표시
+                if (checkedUsers.length > 0) {
+                    displayElement.textContent = ` (${checkedUsers.join(',')})`;
+                } else {
+                    displayElement.textContent = '';
+                }
+                
+                console.log('필터된 사용자 표시 업데이트:', checkedUsers);
+                
+            } catch (error) {
+                console.error('필터된 사용자 표시 업데이트 오류:', error);
+            }
+        }
+
+        // 기존 toggleUserFilter와 toggleAllUsersFilter 함수를 감츸 래퍼 함수들
+        function wrapToggleFunctions() {
+            // toggleUserFilter 함수 래핑
+            if (typeof window.toggleUserFilter === 'function') {
+                const originalToggleUserFilter = window.toggleUserFilter;
+                window.toggleUserFilter = function(userId, checked) {
+                    const result = originalToggleUserFilter.call(this, userId, checked);
+                    setTimeout(updateFilteredUsersDisplay, 50);
+                    return result;
+                };
+            }
+            
+            // toggleAllUsersFilter 함수 래핑
+            if (typeof window.toggleAllUsersFilter === 'function') {
+                const originalToggleAllUsersFilter = window.toggleAllUsersFilter;
+                window.toggleAllUsersFilter = function(checked) {
+                    const result = originalToggleAllUsersFilter.call(this, checked);
+                    setTimeout(updateFilteredUsersDisplay, 50);
+                    return result;
+                };
+            }
+        }
+
+        // UI 상태 복원 함수
+        function restoreUIState() {
+            try {
+                // 사용자 체크박스 상태 복원
+                const savedCheckboxStates = localStorage.getItem('userCheckboxStates');
+                console.log("restoreUIState");
+                console.log(savedCheckboxStates);
+                if (savedCheckboxStates) {
+                    const activatedFilter = JSON.parse(savedCheckboxStates);
+                    
+                    // 모든 체크박스 해제
+                    const allCheckboxes = document.querySelectorAll('#user-checkboxes input[type="checkbox"]');
+                    allCheckboxes.forEach(cb => {
+                        cb.checked = false;
+                    });
+                    
+                    // 저장된 활성화 필터만 체크
+                    const targetCheckbox = document.getElementById(activatedFilter.activated_id);
+                    if (targetCheckbox) {
+                        targetCheckbox.checked = true;
+                    }
+                }
+                
+                // 완료 일정 버튼 상태 복원
+                const completedFilterBtn = document.querySelector('.user-filter-header');
+                if (completedFilterBtn && typeof showCompleted !== 'undefined') {
+                    if (showCompleted) {
+                        completedFilterBtn.textContent = '완료 일정 숨기기';
+                    } else {
+                        completedFilterBtn.textContent = '완료 일정 보기';
+                    }
+                }
+                
+                console.log('UI 상태 복원 완료 - 화면 ID:', getScreenId());
+                
+                // 필터된 사용자 표시 업데이트
+                setTimeout(updateFilteredUsersDisplay, 100);
+                
+                // 필터 상태 재적용
+                restoreFilter();
+                
+            } catch (error) {
+                console.error('UI 상태 복원 오류:', error);
+            }
+        }
+
+        // 필터 상태 재적용 함수
+        function restoreFilter() {
+            try {
+                console.log('필터 상태 재적용 시작 - 화면 ID:', getScreenId());
+                
+                // selectedUsers Set 재구성
+                if (typeof selectedUsers !== 'undefined') {
+                    selectedUsers.clear();
+                    
+                    const savedCheckboxStates = localStorage.getItem('userCheckboxStates');
+                    if (savedCheckboxStates) {
+                        const activatedFilter = JSON.parse(savedCheckboxStates);
+                        
+                        if (activatedFilter.activated_id !== 'user-all') {
+                            // 사용자 ID 추출 (user-1 -> 1)
+                            const userId = activatedFilter.activated_id.replace('user-', '');
+                            if (!isNaN(userId)) {
+                                selectedUsers.add(parseInt(userId));
+                            }
+                        }
+                    }
+                }
+                
+                // 일정 목록 다시 렌더링
+                if (typeof renderSchedules === 'function') {
+                    renderSchedules();
+                    console.log('필터 적용 후 일정 목록 재렌더링 완료');
+                }
+                
+                // 사용자 체크박스 UI 업데이트
+                if (typeof updateUserCheckboxes === 'function') {
+                    updateUserCheckboxes();
+                } else {
+                    // 수동으로 UI 상태 업데이트
+                    const allUserCheckbox = document.getElementById('user-all');
+                    if (allUserCheckbox) {
+                        allUserCheckbox.checked = selectedUsers.size === 0;
+                    }
+                }
+                
+                console.log('필터 상태 재적용 완료 - selectedUsers:', Array.from(selectedUsers));
+                
+            } catch (error) {
+                console.error('필터 상태 재적용 오류:', error);
+            }
+        }
+
+        // 필터 상태 변경 감지 및 자동 저장
+        function setupFilterAutoSave() {
+            // 검색 입력 변경 감지
+            const searchInput = document.getElementById('search-input');
+            if (searchInput) {
+                searchInput.addEventListener('input', saveFilterSettings);
+                searchInput.addEventListener('change', saveFilterSettings);
+            }
+            
+            // 체크박스 변경 감지
+            const observer = new MutationObserver(() => {
+                setTimeout(() => {
+                    saveFilterSettings();
+                    updateFilteredUsersDisplay();
+                }, 100);
+            });
+            
+            // 사용자 체크박스 컨테이너 관찰
+            const checkboxContainer = document.getElementById('user-checkboxes');
+            if (checkboxContainer) {
+                observer.observe(checkboxContainer, { 
+                    childList: true, 
+                    subtree: true, 
+                    attributes: true, 
+                    attributeFilter: ['checked'] 
+                });
+                
+                // 기존 체크박스들에 이벤트 리스너 추가
+                const checkboxes = checkboxContainer.querySelectorAll('input[type="checkbox"]');
+                checkboxes.forEach(cb => {
+                    cb.addEventListener('change', () => {
+                        saveFilterSettings();
+                        setTimeout(updateFilteredUsersDisplay, 50);
+                    });
+                });
+            }
+            
+            // 완료 일정 버튼 감지
+            const completedFilterBtn = document.querySelector('.user-filter-header');
+            if (completedFilterBtn) {
+                const originalToggle = window.toggleCompletedFilter;
+                if (originalToggle) {
+                    window.toggleCompletedFilter = function() {
+                        originalToggle.call(this);
+                        setTimeout(saveFilterSettings, 100);
+                    };
+                }
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // 현재 페이지를 로컬 스토리지에 저장
+            const currentPath = window.location.pathname;
+            localStorage.setItem('lastPage', currentPath);
+
+            // 토큰 확인
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = '/static/index.html';
+                return;
+            }
+
+            // 화면 ID 표시
+            displayScreenId();
+
+            // 필터 설정 로드 (main.js 로드 전에 실행)
+            loadFilterSettings();
+
+            // 초기화
+            initializeApp();
+            console.log("loadSchedule entry");
+            main_loadSchedules();
+            loadUserCheckboxes();
+            console.log("loadSchedules");
+            setupInfiniteScroll();
+            renderSchedules();
+            console.log("renderSchedules completed");
+
+            // 필터 자동 저장 설정 (모든 초기화 완료 후)
+            setTimeout(() => {
+                setupFilterAutoSave();
+                // 기존 toggle 함수들 래핑
+                wrapToggleFunctions();
+                // 초기 필터된 사용자 표시 업데이트
+                updateFilteredUsersDisplay();
+                console.log("필터 자동 저장 설정 완료 - 화면 ID:", getScreenId());
+            }, 1000);
+        });
+    </script>
+    </div>
+</body>
+</html> 

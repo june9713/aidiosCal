@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>파일 뷰어 - 일정 관리 시스템</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/fileviewer.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- 헤더 -->
+    <div class="fileviewer-header">
+        <div class="header-left">
+            <button onclick="goBack()" class="back-btn">
+                <i class="fas fa-arrow-left"></i> 뒤로가기
+            </button>
+            <h1>파일 뷰어</h1>
+        </div>
+        <div class="header-right">
+            <span class="user-info" id="user-info"></span>
+            <button onclick="logout()" class="logout-btn">로그아웃</button>
+        </div>
+    </div>
+
+    <!-- 필터 섹션 -->
+    <div class="filter-section">
+        <div class="filter-row">
+            <div class="filter-group">
+                <label>업로드 날짜</label>
+                <input type="datetime-local" id="start-date" class="filter-input">
+                <span>~</span>
+                <input type="datetime-local" id="end-date" class="filter-input">
+            </div>
+            <div class="filter-group">
+                <label>파일명 패턴</label>
+                <input type="text" id="filename-pattern" placeholder="*.xlsx, *.png, 문서*" class="filter-input">
+            </div>
+            <div class="filter-group">
+                <label>업로드한 사람</label>
+                <select id="uploader-filter" class="filter-input">
+                    <option value="">전체</option>
+                </select>
+            </div>
+        </div>
+        <div class="filter-row">
+            <div class="filter-group">
+                <label>프로젝트명</label>
+                <select id="project-filter" class="filter-input">
+                    <option value="">전체</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>일정 제목</label>
+                <input type="text" id="schedule-title-filter" placeholder="일정 제목 검색" class="filter-input">
+            </div>
+            <div class="filter-actions">
+                <button onclick="searchFiles()" class="search-btn">
+                    <i class="fas fa-search"></i> 조회
+                </button>
+                <button onclick="clearFilters()" class="clear-btn">
+                    <i class="fas fa-times"></i> 초기화
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 도구모음 -->
+    <div class="toolbar">
+        <div class="view-controls">
+            <button onclick="toggleViewMode('grid')" class="view-btn active" id="grid-view-btn">
+                <i class="fas fa-th"></i> 그리드
+            </button>
+            <button onclick="toggleViewMode('list')" class="view-btn" id="list-view-btn">
+                <i class="fas fa-list"></i> 목록
+            </button>
+        </div>
+        <div class="file-actions">
+            <button onclick="toggleSelectMode()" class="select-btn" id="select-btn">
+                <i class="fas fa-check-square"></i> 선택모드
+            </button>
+            <button onclick="downloadSelected()" class="download-btn" id="download-selected-btn" style="display:none;">
+                <i class="fas fa-download"></i> 다운로드
+            </button>
+            <button onclick="deleteSelected()" class="file-delete-btn" id="delete-selected-btn" style="display:none; background-color: #dc3545; color: white;">
+                <i class="fas fa-trash"></i> 삭제
+            </button>
+        </div>
+    </div>
+
+    <!-- 파일 목록 컨테이너 -->
+    <div class="files-container">
+        <div class="no-files-message" id="no-files-message">
+            필터를 설정하고 조회 버튼을 클릭하여 파일을 검색하세요.
+        </div>
+        <div class="files-grid" id="files-grid" style="display:none;"></div>
+        <div class="files-list" id="files-list" style="display:none;"></div>
+    </div>
+
+    <!-- 갤러리 모달 -->
+    <div class="gallery-modal" id="gallery-modal" style="display:none;">
+        <div class="gallery-header">
+            <div class="gallery-nav">
+                <button onclick="previousFile()" class="nav-btn">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <span class="file-counter" id="file-counter">1 / 10</span>
+                <button onclick="nextFile()" class="nav-btn">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+            <button onclick="closeGallery()" class="close-gallery">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="gallery-content">
+            <div class="gallery-media" id="gallery-media"></div>
+            <div class="gallery-info" id="gallery-info"></div>
+        </div>
+    </div>
+
+    <!-- 컨텍스트 메뉴 -->
+    <div class="context-menu" id="context-menu" style="display:none;">
+        <div class="context-menu-item" onclick="downloadFile()">
+            <i class="fas fa-download"></i> 다운로드
+        </div>
+        <div class="context-menu-item" onclick="deleteFile()">
+            <i class="fas fa-trash"></i> 삭제
+        </div>
+        <div class="context-menu-item" onclick="renameFile()">
+            <i class="fas fa-edit"></i> 이름변경
+        </div>
+    </div>
+
+    <!-- 이름 변경 모달 -->
+    <div class="rename-modal" id="rename-modal" style="display:none;">
+        <div class="modal-content">
+            <h3>파일 이름 변경</h3>
+            <input type="text" id="new-filename" placeholder="새 파일명">
+            <div class="modal-actions">
+                <button onclick="confirmRename()" class="confirm-btn">확인</button>
+                <button onclick="closeRenameModal()" class="cancel-btn">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/main.js"></script>
+    <script src="/static/js/fileviewer.js"></script>
+</body>
+</html> 

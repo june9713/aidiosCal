@@ -1,0 +1,75 @@
+# API 라우트 분석 및 개선 제안
+날짜: 2024-03-21
+분석자: AI Assistant
+
+## 1. 중복 라우트 발견
+
+### 1.1 schedules.py
+- POST / (24번, 449번 라인)
+- PUT /{schedule_id} (159번, 465번 라인)
+- POST /{schedule_id}/attachments (270번 라인) - attachments.py와 중복
+- GET /attachments (320번 라인) - attachments.py와 중복
+- DELETE /attachments/{attachment_id} (377번 라인) - attachments.py와 중복
+
+### 1.2 attachments.py
+- POST /schedules/{schedule_id}/attachments (17번 라인) - schedules.py와 중복
+- GET /getschedules/{schedule_id} (65번 라인) - schedules.py와 중복
+- DELETE /{attachment_id} (99번 라인) - schedules.py와 중복
+
+## 2. 개선이 필요한 라우트
+
+### 2.1 기능 중복
+- POST /share와 POST /{schedule_id}/share (공유 기능 중복)
+- PUT /{schedule_id}/memo와 PUT /{schedule_id} (메모 수정 기능 중복)
+- POST /{schedule_id}/complete와 PUT /{schedule_id} (완료 상태 변경 기능 중복)
+
+## 3. 개선된 라우트 구조 제안
+
+### 3.1 /schedules
+```
+GET /                    # 일정 목록 조회
+POST /                   # 일정 생성
+GET /{schedule_id}       # 일정 상세 조회
+PUT /{schedule_id}       # 일정 수정 (메모, 완료 상태 포함)
+DELETE /{schedule_id}    # 일정 삭제
+GET /{schedule_id}/children  # 하위 일정 조회
+POST /{schedule_id}/share    # 일정 공유
+```
+
+### 3.2 /attachments
+```
+POST /schedules/{schedule_id}  # 첨부파일 업로드
+GET /schedules/{schedule_id}   # 첨부파일 목록 조회
+DELETE /{attachment_id}        # 첨부파일 삭제
+```
+
+### 3.3 /alarms
+```
+GET /                    # 알람 목록 조회
+POST /{alarm_id}/ack     # 알람 확인
+DELETE /{alarm_id}       # 알람 삭제
+DELETE /clear            # 모든 알람 삭제
+```
+
+### 3.4 /auth
+```
+POST /register           # 회원가입
+GET /users/              # 사용자 목록 조회
+POST /token              # 로그인
+POST /token/refresh      # 토큰 갱신
+GET /users/me            # 현재 사용자 정보 조회
+```
+
+## 4. 개선 효과
+1. API 일관성 향상
+2. 중복 코드 제거
+3. 유지보수성 향상
+4. API 문서화 용이성 증가
+5. 클라이언트 개발 편의성 향상
+
+## 5. 다음 단계
+1. 중복 라우트 제거
+2. 첨부파일 관련 라우트를 attachments.py로 통합
+3. 일정 수정 라우트 통합
+4. API 문서 업데이트
+5. 클라이언트 코드 수정 

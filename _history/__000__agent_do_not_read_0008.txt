@@ -1,0 +1,32 @@
+# 작업 기록 0008 - 로그아웃 후 재로그인 토큰 문제 해결
+
+## 작업 일시
+2024-12-19
+
+## 문제 상황
+- 로그아웃 후 다시 로그인하면 calendar.js의 loadSchedules() 함수에서 "토큰이 없습니다." 에러 발생
+- 사용자가 정상적으로 로그인했음에도 불구하고 토큰을 찾을 수 없다는 문제
+
+## 원인 분석
+1. **main.js의 handleLogin 함수**에서 로그인 성공 시 `tokenCreatedAt`을 저장하지 않음
+2. `isTokenExpired()` 함수가 `tokenCreatedAt`이 없으면 토큰을 만료된 것으로 판단
+3. 페이지 로드 시 토큰 만료 체크에서 `clearSession()` 호출하여 토큰 삭제
+4. 결과적으로 calendar.js에서 토큰을 찾을 수 없게 됨
+
+## 해결 방법
+1. **handleLogin 함수 수정** (static/js/main.js:190라인 근처)
+   - 로그인 성공 시 `localStorage.setItem('tokenCreatedAt', Date.now().toString())` 추가
+
+2. **refreshToken 함수 복구** (static/js/main.js:146라인 근처)
+   - 잘못 수정된 부분을 원래 기능으로 복구
+   - 토큰 갱신 후 불필요한 리다이렉트 제거
+
+3. **calendar.js의 loadSchedules 함수 개선** (static/js/calendar.js:56라인 근처)
+   - 토큰이 없을 시 로그인 페이지로 리다이렉트 추가
+
+## 수정된 파일
+- static/js/main.js
+- static/js/calendar.js
+
+## 테스트 결과
+로그아웃 → 재로그인 시 정상적으로 토큰이 유지되고 calendar 페이지에서 일정 로드가 성공적으로 이루어질 것으로 예상됩니다. 

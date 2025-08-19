@@ -1,0 +1,118 @@
+# 일정 관리 시스템 분석
+
+## 핵심 기능
+
+### 1. 일정 CRUD
+- 생성: POST /schedules/
+- 조회: GET /schedules/
+- 상세: GET /schedules/{id}
+- 수정: PUT /schedules/{id}
+- 삭제: DELETE /schedules/{id}
+
+### 2. 일정 상태 관리
+- 완료 처리: POST /schedules/{id}/complete
+- 완료/미완료 필터링
+- 우선순위 관리 (긴급, 급함, 곧임박, 일반, 거북이)
+
+### 3. 공유 시스템
+- 일정 공유: POST /schedules/{id}/share
+- 공유 대상자 관리
+- 공유 메모 기능
+
+### 4. 첨부 파일
+- 파일 업로드: POST /schedules/{id}/attachments
+- 파일 조회: GET /schedules/attachments
+- 파일 삭제: DELETE /schedules/attachments/{id}
+- 파일 공유: POST /schedules/share
+
+### 5. 메모 시스템
+- 메모 업데이트: PUT /schedules/{id}/memo
+- 메모 작성자 추적
+- 메모 수정 시간 기록
+
+## 구현 상세
+
+### 1. 일정 생성
+```python
+@router.post("/", response_model=ScheduleSchema)
+- 사용자 인증 확인
+- 일정 데이터 검증
+- 소유자 자동 설정
+- 트랜잭션 관리
+```
+
+### 2. 일정 조회
+```python
+@router.get("/", response_model=List[ScheduleSchema])
+- 페이지네이션 지원 (skip/limit)
+- 완료 상태 필터링
+- 소유자 정보 포함 (joinedload)
+- 권한 검증
+```
+
+### 3. 파일 업로드
+```python
+@router.post("/{schedule_id}/attachments")
+- 파일 저장 디렉토리 관리
+- 메타데이터 저장
+- 파일 타입 검증
+- 에러 처리
+```
+
+### 4. 공유 기능
+```python
+@router.post("/{schedule_id}/share")
+- 소유자 권한 검증
+- 공유 대상자 확인
+- 메모 지원
+- 생성 시간 기록
+```
+
+## 보안 기능
+
+### 1. 접근 제어
+- 사용자 인증 필수
+- 소유자 권한 검증
+- 공유 대상자 권한 관리
+
+### 2. 데이터 검증
+- 입력 데이터 유효성 검사
+- 파일 타입 검증
+- 에러 처리
+
+### 3. 파일 시스템
+- 안전한 파일 저장
+- 파일 접근 제어
+- 메타데이터 관리
+
+## 에러 처리
+- 상세한 에러 메시지
+- 트랜잭션 롤백
+- HTTP 상태 코드 관리
+- 예외 처리 계층화
+
+## 개선 필요사항
+
+### 1. 기능 개선
+- 반복 일정 지원
+- 일정 검색 기능
+- 태그 시스템
+- 알림 설정 세분화
+
+### 2. 보안 강화
+- 파일 크기 제한
+- 파일 타입 제한
+- 공유 권한 레벨
+- 접근 로그 관리
+
+### 3. 성능 최적화
+- 데이터베이스 인덱싱
+- 파일 저장소 최적화
+- 캐싱 전략
+- 쿼리 최적화
+
+### 4. 사용자 경험
+- 일정 알림 개선
+- 공유 UI/UX 개선
+- 파일 미리보기
+- 드래그 앤 드롭 지원 

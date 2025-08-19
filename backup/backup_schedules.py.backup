@@ -1,0 +1,585 @@
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
+from sqlalchemy.orm import Session, joinedload
+from typing import List, Optional
+from datetime import datetime
+import os
+from sqlalchemy import or_, and_, not_, func
+from app.core.database import get_db
+from app.core.auth import get_current_active_user
+from app.models.models import User, Schedule, ScheduleShare, Attachment, PriorityLevel, Alarm, AlarmType
+from app.schemas.schemas import (
+    ScheduleCreate,
+    Schedule as ScheduleSchema,
+    ScheduleShareCreate,
+    ScheduleShare as ScheduleShareSchema,
+    Attachment as AttachmentSchema
+)
+from pydantic import BaseModel
+from app.routers.auth import get_current_user
+import logging
+import sys
+import pandas as pd
+from fastapi.responses import StreamingResponse
+import io
+from datetime import datetime
+
+# 로거 설정
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+# 콘솔 핸들러 추가
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setLevel(logging.DEBUG)
+
+# 로그 포맷 설정
+formatter = logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s'
+)
+console_handler.setFormatter(formatter)
+
+# 핸들러 추가
+logger.addHandler(console_handler)
+
+router = APIRouter()
+
+class MemoUpdate(BaseModel):
+    memo: str
+
+@router.post("/", response_model=ScheduleSchema)
+def create_schedule(
+    schedule: ScheduleCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    try:
+        schedule_data = schedule.dict()
+        logger.info(f"Creating schedule with data: {schedule_data}")
+        
+        # parent_order 계산 로직 수정
+        if schedule_data.get("parent_id"):
+            logger.info(f"Parent ID found: {schedule_data['parent_id']}")
+            # 부모 일정의 parent_order 가져오기
+            parent_schedule = db.query(Schedule).filter(Schedule.id == schedule_data["parent_id"]).first()
+            if parent_schedule:
+                parent_order = parent_schedule.parent_order
+                logger.info(f"Parent's parent_order: {parent_order}")
+                # 같은 부모를 가진 일정들의 최대 parent_order 찾기
+                max_order = db.query(func.max(Schedule.parent_order)).filter(
+                    Schedule.parent_id == schedule_data["parent_id"]
+                ).scalar() or parent_order
+                logger.info(f"Max parent_order found: {max_order}")
+                schedule_data["parent_order"] = max_order + 1
+                logger.info(f"New parent_order set to: {schedule_data['parent_order']}")
+            else:
+                logger.warning(f"Parent schedule not found for ID: {schedule_data['parent_id']}")
+                schedule_data["parent_order"] = 0
+        else:
+            logger.info("No parent_id found, setting parent_order to 0")
+            schedule_data["parent_order"] = 0
+
+        db_schedule = Schedule(**schedule_data, owner_id=current_user.id)
+        logger.info(f"Created schedule object: {db_schedule.__dict__}")
+        
+        db.add(db_schedule)
+        db.commit()
+        db.refresh(db_schedule)
+        db.refresh(db_schedule.owner)
+        logger.info(f"Schedule saved to database with ID: {db_schedule.id}")
+        return db_schedule
+    except Exception as e:
+        logger.error(f"Error creating schedule: {str(e)}")
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to create schedule: {str(e)}"
+        )
+
+@router.get("/", response_model=List[ScheduleSchema])
+def read_schedules(
+    skip: int = 0,
+    limit: int = 100,
+    show_completed: bool = True,
+    show_all_users: bool = True,
+    completed_only: bool = False,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    search_terms: Optional[str] = None,
+    exclude_terms: Optional[str] = None,
+    search_in_title: bool = True,
+    search_in_content: bool = True,
+    search_in_memo: bool = True,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """일정 목록을 반환합니다."""
+    query = db.query(Schedule)
+
+    # 사용자 필터링
+    if not show_all_users:
+        query = query.filter(Schedule.owner_id == current_user.id)
+
+    # 완료 상태 필터링
+    if completed_only:
+        query = query.filter(Schedule.is_completed == True)
+    elif not show_completed:
+        query = query.filter(Schedule.is_completed == False)
+
+    # 날짜 범위 필터링
+    if start_date:
+        query = query.filter(Schedule.date >= start_date)
+    if end_date:
+        query = query.filter(Schedule.date <= end_date)
+
+    # 검색어 필터링
+    if search_terms:
+        search_conditions = []
+        for term in search_terms.split(','):
+            term = term.strip()
+            if term:
+                term_conditions = []
+                if search_in_title:
+                    term_conditions.append(Schedule.title.ilike(f'%{term}%'))
+                if search_in_content:
+                    term_conditions.append(Schedule.content.ilike(f'%{term}%'))
+                if search_in_memo:
+                    term_conditions.append(Schedule.memo.ilike(f'%{term}%'))
+                if term_conditions:
+                    search_conditions.append(or_(*term_conditions))
+        if search_conditions:
+            query = query.filter(or_(*search_conditions))
+
+    # 제외 검색어 필터링
+    if exclude_terms:
+        exclude_conditions = []
+        for term in exclude_terms.split(','):
+            term = term.strip()
+            if term:
+                exclude_term_conditions = []
+                if search_in_title:
+                    exclude_term_conditions.append(Schedule.title.ilike(f'%{term}%'))
+                if search_in_content:
+                    exclude_term_conditions.append(Schedule.content.ilike(f'%{term}%'))
+                if search_in_memo:
+                    exclude_term_conditions.append(Schedule.memo.ilike(f'%{term}%'))
+                if exclude_term_conditions:
+                    exclude_conditions.append(not_(or_(*exclude_term_conditions)))
+        if exclude_conditions:
+            query = query.filter(and_(*exclude_conditions))
+
+    # 마감시간 기준 정렬
+    query = query.order_by(
+        Schedule.due_time.asc().nullslast(),
+        Schedule.created_at.desc()
+    )
+
+    schedules = query.offset(skip).limit(limit).all()
+    return schedules
+
+@router.get("/{schedule_id}", response_model=ScheduleSchema)
+def read_schedule(
+    schedule_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    try:
+        schedule = db.query(Schedule).filter(
+            or_(
+                Schedule.id == schedule_id,
+                Schedule.id.in_(
+                    db.query(ScheduleShare.schedule_id)
+                    .filter(
+                        ScheduleShare.schedule_id == schedule_id,
+                        ScheduleShare.shared_with_id == current_user.id
+                    )
+                )
+            )
+        ).options(
+            joinedload(Schedule.owner),
+            joinedload(Schedule.shares)
+        ).first()
+        
+        if schedule is None:
+            raise HTTPException(status_code=404, detail="Schedule not found")
+        return schedule
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch schedule: {str(e)}"
+        )
+
+@router.put("/{schedule_id}", response_model=ScheduleSchema)
+def update_schedule(
+    schedule_id: int,
+    schedule: ScheduleCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    try:
+        db_schedule = db.query(Schedule).filter(
+            Schedule.id == schedule_id,
+            Schedule.owner_id == current_user.id
+        ).first()
+        if db_schedule is None:
+            raise HTTPException(status_code=404, detail="Schedule not found")
+        
+        for key, value in schedule.dict().items():
+            setattr(db_schedule, key, value)
+        
+        db.commit()
+        db.refresh(db_schedule)
+        return db_schedule
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to update schedule: {str(e)}"
+        )
+
+@router.delete("/{schedule_id}")
+def delete_schedule(
+    schedule_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    try:
+        schedule = db.query(Schedule).filter(
+            Schedule.id == schedule_id,
+            Schedule.owner_id == current_user.id
+        ).first()
+        if schedule is None:
+            raise HTTPException(status_code=404, detail="Schedule not found")
+        
+        db.delete(schedule)
+        db.commit()
+        return {"message": "Schedule deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to delete schedule: {str(e)}"
+        )
+
+@router.post("/{schedule_id}/complete")
+def complete_schedule(
+    schedule_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    try:
+        schedule = db.query(Schedule).filter(
+            Schedule.id == schedule_id,
+            Schedule.owner_id == current_user.id
+        ).first()
+        if schedule is None:
+            raise HTTPException(status_code=404, detail="Schedule not found")
+        
+        schedule.is_completed = True
+        db.commit()
+        return {"message": "Schedule marked as completed"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to complete schedule: {str(e)}"
+        )
+
+@router.post("/{schedule_id}/share", response_model=ScheduleShareSchema)
+def share_schedule(
+    schedule_id: int,
+    share: ScheduleShareCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    try:
+        schedule = db.query(Schedule).filter(
+            Schedule.id == schedule_id,
+            Schedule.owner_id == current_user.id
+        ).first()
+        if schedule is None:
+            raise HTTPException(status_code=404, detail="Schedule not found")
+        
+        db_share = ScheduleShare(**share.dict())
+        db.add(db_share)
+        db.commit()
+        db.refresh(db_share)
+        return db_share
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to share schedule: {str(e)}"
+        )
+
+@router.put("/{schedule_id}/memo", response_model=ScheduleSchema)
+async def update_schedule_memo(
+    schedule_id: int,
+    memo_update: MemoUpdate,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    # 시작 로그
+    logger.info(f"[MEMO UPDATE START] Schedule ID: {schedule_id}, User: {current_user.name} (ID: {current_user.id})")
+    logger.debug(f"[MEMO DATA] Received memo data: {memo_update.dict()}")
+    
+    try:
+        # 일정 조회
+        schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
+        if not schedule:
+            logger.error(f"[MEMO ERROR] Schedule not found: {schedule_id}")
+            raise HTTPException(status_code=404, detail="일정을 찾을 수 없습니다")
+        
+        logger.info(f"[MEMO INFO] Schedule found - Title: '{schedule.title}', Owner: {schedule.owner_id}")
+        logger.debug(f"[MEMO INFO] Previous memo: '{schedule.memo}'")
+        
+        # 메모 업데이트
+        new_memo = memo_update.memo
+        old_memo = schedule.memo
+        
+        # 메모가 실제로 변경되었는지 확인
+        if new_memo == old_memo:
+            logger.info(f"[MEMO SKIP] No changes detected in memo content")
+            return schedule
+            
+        schedule.memo = new_memo
+        schedule.memo_author_id = current_user.id
+        schedule.memo_updated_at = datetime.now()
+        
+        logger.info(f"[MEMO UPDATE] Memo changed from '{old_memo}' to '{new_memo}'")
+        
+        # 알람 생성 로직
+        alarm_created = False
+        if schedule.owner_id != current_user.id:  
+            # 다른 사용자가 메모를 추가한 경우
+            logger.info(f"[ALARM CREATE] Creating memo alarm - Schedule owner: {schedule.owner_id}, Editor: {current_user.id}")
+            
+            new_alarm = Alarm(
+                user_id=schedule.owner_id,  # 일정 소유자에게 알림
+                schedule_id=schedule_id,
+                type=AlarmType.MEMO,
+                message=f"{current_user.name}님이 일정 '{schedule.title}'에 메모를 추가했습니다."
+            )
+            db.add(new_alarm)
+            alarm_created = True
+            logger.info(f"[ALARM SUCCESS] Memo alarm created for user {schedule.owner_id}")
+        else:
+            # 본인이 자신의 일정에 메모를 추가한 경우
+            logger.info(f"[ALARM SKIP] No alarm created - User editing own schedule")
+        
+        # 데이터베이스 커밋
+        db.commit()
+        logger.info(f"[MEMO SUCCESS] Database committed successfully")
+        
+        # 최종 결과 로그
+        result = {
+            "id": schedule.id,
+            "title": schedule.title,
+            "memo": schedule.memo
+        }
+        
+        logger.info(f"[MEMO COMPLETE] Schedule: {schedule_id}, Alarm created: {alarm_created}")
+        logger.debug(f"[MEMO RESULT] Final result: {result}")
+        
+        return schedule
+        
+    except HTTPException:
+        # HTTPException은 그대로 전파
+        raise
+    except Exception as e:
+        # 예상치 못한 오류 처리
+        logger.error(f"[MEMO ERROR] Unexpected error in memo update: {str(e)}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail="메모 업데이트 중 오류가 발생했습니다")
+
+@router.get("/{schedule_id}/parent", response_model=ScheduleSchema)
+async def get_schedule_parent(
+    schedule_id: int,
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """스케줄의 부모 작업을 반환합니다."""
+    # 1. schedule_id로 스케줄을 찾음 (owner_id 조건 제거)
+    schedule = db.query(Schedule).filter(
+        Schedule.id == schedule_id
+    ).first()
+    
+    if not schedule:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    
+    if not schedule.parent_id:
+        raise HTTPException(status_code=404, detail="Parent schedule not found")
+    
+    # 2. 부모 스케줄도 owner_id 조건 없이 조회
+    parent = db.query(Schedule).filter(
+        Schedule.id == schedule.parent_id
+    ).first()
+    
+    if not parent:
+        raise HTTPException(status_code=404, detail="Parent schedule not found")
+    
+    return parent
+
+@router.get("/export/excel")
+async def export_schedules_to_excel(
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    try:
+        # 모든 사용자와 일정 조회
+        users = db.query(User).all()
+        
+        # 엑셀 파일을 메모리에 생성
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            workbook = writer.book
+            
+            # 스타일 정의
+            header_format = workbook.add_format({
+                'bold': True,
+                'text_wrap': True,
+                'valign': 'top',
+                'fg_color': '#D7E4BC',
+                'border': 1
+            })
+            
+            cell_format = workbook.add_format({
+                'text_wrap': True,
+                'valign': 'top',
+                'border': 1
+            })
+            
+            date_format = workbook.add_format({
+                'num_format': 'yyyy-mm-dd hh:mm',
+                'text_wrap': True,
+                'valign': 'top',
+                'border': 1
+            })
+            
+            # 우선순위별 배경색 포맷
+            priority_formats = {
+                'URGENT': workbook.add_format({
+                    'text_wrap': True,
+                    'valign': 'top',
+                    'border': 1,
+                    'bg_color': '#FFB6C1'  # 연한 빨간색
+                }),
+                'HIGH': workbook.add_format({
+                    'text_wrap': True,
+                    'valign': 'top',
+                    'border': 1,
+                    'bg_color': '#FFD700'  # 금색
+                }),
+                'MEDIUM': workbook.add_format({
+                    'text_wrap': True,
+                    'valign': 'top',
+                    'border': 1,
+                    'bg_color': '#98FB98'  # 연한 초록색
+                }),
+                'LOW': workbook.add_format({
+                    'text_wrap': True,
+                    'valign': 'top',
+                    'border': 1,
+                    'bg_color': '#ADD8E6'  # 연한 파란색
+                }),
+                'TURTLE': workbook.add_format({
+                    'text_wrap': True,
+                    'valign': 'top',
+                    'border': 1,
+                    'bg_color': '#E6E6FA'  # 연한 보라색
+                })
+            }
+            
+            # 모든 일정 데이터 수집
+            all_data = []
+            for user in users:
+                # 기본 쿼리
+                query = db.query(Schedule).filter(Schedule.owner_id == user.id)
+                
+                # 날짜 필터링 적용
+                if start_date:
+                    query = query.filter(Schedule.date >= start_date)
+                if end_date:
+                    query = query.filter(Schedule.date <= end_date)
+                
+                schedules = query.order_by(Schedule.date.asc()).all()
+                
+                for schedule in schedules:
+                    priority = schedule.priority.value if schedule.priority else ''
+                    all_data.append({
+                        '작성자': user.name,
+                        '완료여부': '완료' if schedule.is_completed else '미완료',
+                        '마감시간': schedule.due_time,
+                        '프로젝트': schedule.project_name,
+                        '제목': schedule.title,
+                        '내용': schedule.content,
+                        '메모': schedule.memo,
+                        '우선순위': priority
+                    })
+            
+            if all_data:
+                df = pd.DataFrame(all_data)
+                
+                # 시트 생성
+                sheet_name = "전체 일정"
+                df.to_excel(writer, sheet_name=sheet_name, index=False)
+                
+                # 워크시트 가져오기
+                worksheet = writer.sheets[sheet_name]
+                
+                # 열 너비 설정
+                worksheet.set_column('A:A', 15)  # 작성자
+                worksheet.set_column('B:B', 10)  # 완료여부
+                worksheet.set_column('C:C', 20)  # 마감시간
+                worksheet.set_column('D:D', 20)  # 프로젝트
+                worksheet.set_column('E:E', 30)  # 제목
+                worksheet.set_column('F:F', 40)  # 내용
+                worksheet.set_column('G:G', 40)  # 메모
+                worksheet.set_column('H:H', 15)  # 우선순위
+                
+                # 헤더 스타일 적용
+                for col_num, value in enumerate(df.columns.values):
+                    worksheet.write(0, col_num, value, header_format)
+                
+                # 데이터 스타일 적용
+                for row_num in range(len(df)):
+                    priority = df.iloc[row_num]['우선순위']  # 우선순위 컬럼
+                    row_format = priority_formats.get(priority, cell_format)
+                    
+                    for col_num, column in enumerate(df.columns):
+                        value = df.iloc[row_num][column]
+                        if isinstance(value, datetime):
+                            worksheet.write(row_num + 1, col_num, value, date_format)
+                        else:
+                            worksheet.write(row_num + 1, col_num, value, row_format)
+        
+        # 파일 포인터를 처음으로 이동
+        output.seek(0)
+        
+        # 현재 날짜를 파일명에 포함
+        current_date = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'schedules_export_{current_date}.xlsx'
+        
+        # StreamingResponse 반환
+        return StreamingResponse(
+            output,
+            media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            headers={'Content-Disposition': f'attachment; filename="{filename}"'}
+        )
+        
+    except Exception as e:
+        logger.error(f"[EXCEL EXPORT ERROR] {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"엑셀 파일 생성 중 오류가 발생했습니다: {str(e)}"
+        )

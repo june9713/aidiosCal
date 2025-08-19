@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>월간 달력 - 일정 관리 시스템</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="calendar-container">
+        <header class="calendar-header">
+            <div class="calendar-nav">
+                <button id="prev-month" class="nav-btn">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <h1 id="current-month-year"></h1>
+                <button id="next-month" class="nav-btn">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+            <div class="calendar-controls">
+                <button id="today-btn" class="control-btn">오늘</button>
+                <button id="week-view-btn" class="control-btn">주간보기</button>
+                <button id="list-view-btn" class="control-btn">목록보기</button>
+            </div>
+        </header>
+
+        <div class="calendar-grid">
+            <div class="calendar-weekdays">
+                <div class="weekday">일</div>
+                <div class="weekday">월</div>
+                <div class="weekday">화</div>
+                <div class="weekday">수</div>
+                <div class="weekday">목</div>
+                <div class="weekday">금</div>
+                <div class="weekday">토</div>
+            </div>
+            <div id="calendar-days" class="calendar-days"></div>
+        </div>
+    </div>
+
+    <!-- 일정 상세 모달 -->
+    <div id="schedule-detail-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>일정 상세</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div id="schedule-detail-content"></div>
+        </div>
+    </div>
+
+    <script src="/static/js/calendar.js"></script>
+</body>
+</html> 

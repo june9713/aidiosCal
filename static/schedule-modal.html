@@ -1,0 +1,23 @@
+<div class="modal-body">
+    <form id="scheduleForm">
+        <div class="mb-3">
+            <label for="projectName" class="form-label">프로젝트</label>
+            <input type="text" class="form-control" id="projectName" name="project_name">
+        </div>
+        <div class="mb-3">
+            <label for="title" class="form-label">제목</label>
+            <input type="text" class="form-control" id="title" name="title" required>
+        </div>
+        // ... existing code ...
+    </form>
+</div>
+<div class="modal-footer">
+    <div class="btn-group me-2">
+        <button type="button" class="btn btn-secondary" id="viewParentBtn" style="display: none;">부모작업 보기</button>
+        <button type="button" class="btn btn-secondary" id="viewChildrenBtn" style="display: none;">후속작업 보기</button>
+        <button type="button" class="btn btn-primary" id="createChildBtn">후속작업 생성</button>
+    </div>
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+    <button type="button" class="btn btn-primary" id="saveScheduleBtn">저장</button>
+</div>
+// ... existing code ... 

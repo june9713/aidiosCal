@@ -1,0 +1,212 @@
+from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse, Response
+from pathlib import Path
+from app.core.database import engine, Base, get_db
+from app.routers import auth, schedules, alarms, attachments, projects
+from app.routers.auth import get_current_user
+from app.models.models import Alarm
+from sqlalchemy.orm import Session
+from datetime import datetime
+#from app.core.logger import setup_logger, log_function_call
+from app.models.models import Schedule, AlarmType
+import uvicorn
+print("app start")
+
+# 로거 설정
+#logger = setup_logger(__name__)
+import os
+import datetime
+import logging
+import sys
+import time
+
+# 로그 포맷 설정
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler('app.log')
+    ]
+)
+
+logger = logging.getLogger(__name__)
+# Create database tables
+Base.metadata.create_all(bind=engine)
+
+app = FastAPI(title="Schedule Management System")
+
+# CORS middleware configuration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Mount static files
+static_path = Path("static")
+static_path.mkdir(exist_ok=True)
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Include routers
+app.include_router(auth.router, tags=["authentication"])
+app.include_router(alarms.router, prefix="/alarms", tags=["alarms"])
+app.include_router(attachments.router, prefix="/attachments", tags=["attachments"])
+app.include_router(projects.router, prefix="/projects", tags=["projects"])
+
+
+@app.get("/debug/routes")
+async def debug_routes():
+    """등록된 모든 라우트를 확인합니다."""
+    routes = []
+    for route in app.routes:
+        if hasattr(route, 'path'):
+            routes.append({
+                'path': route.path,
+                'methods': getattr(route, 'methods', [])
+            })
+    return routes
+
+@app.get("/", response_class=HTMLResponse)
+async def read_root():
+    with open("static/index.html", "r", encoding="utf-8") as f:
+        return f.read()
+
+@app.get("/favicon.ico")
+async def favicon():
+    return Response(status_code=204)
+
+# 알람 엔드포인트들 (기존 get_current_user 사용)
+@app.get("/alarms")
+async def get_alarms(
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """사용자의 알람 목록을 반환합니다"""
+    alarms = db.query(Alarm).filter(
+        Alarm.user_id == current_user.id
+    ).order_by(Alarm.created_at.desc()).all()
+    return [
+        {
+            "id": alarm.id,
+            "type": alarm.type.value,
+            "message": alarm.message,
+            "is_acked": alarm.is_acked,
+            "created_at": alarm.created_at.isoformat(),
+            "schedule_id": alarm.schedule_id
+        }
+        for alarm in alarms
+    ]
+
+@app.post("/ack_alarms/{alarm_id}/ack")
+async def acknowledge_alarm(
+    alarm_id: int,
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """알람을 확인 처리합니다"""
+    alarm = db.query(Alarm).filter(
+        Alarm.id == alarm_id,
+        Alarm.user_id == current_user.id
+    ).first()
+    
+    if not alarm:
+        raise HTTPException(status_code=404, detail="Alarm not found")
+    
+    alarm.is_acked = True
+    alarm.acked_at = datetime.now()
+    db.commit()
+    
+    return {"message": "Alarm acknowledged", "alarm_id": alarm_id}
+
+@app.delete("/delete_alarms/{alarm_id}")
+async def delete_alarm(
+    alarm_id: int,
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """개별 알람을 삭제합니다"""
+    alarm = db.query(Alarm).filter(
+        Alarm.id == alarm_id,
+        Alarm.user_id == current_user.id
+    ).first()
+    
+    if not alarm:
+        raise HTTPException(status_code=404, detail="Alarm not found")
+    
+    db.delete(alarm)
+    db.commit()
+    
+    return {"message": "Alarm deleted", "alarm_id": alarm_id}
+
+@app.delete("/clear_alarms/clear")
+async def clear_all_alarms(
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """모든 알람을 삭제합니다"""
+    db.query(Alarm).filter(
+        Alarm.user_id == current_user.id
+    ).delete()
+    db.commit()
+    
+    return {"message": "All alarms cleared"}
+
+@app.post("/schedules/{schedule_id}/request-completion")
+async def request_completion(schedule_id: int, current_user = Depends(get_current_user), db: Session = Depends(get_db)):
+    """일정 완료 요청을 처리합니다"""
+    # 일정 조회
+    schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
+    if not schedule:
+        raise HTTPException(status_code=404, detail="스케쥴이 존재하지 않습니다")
+    
+    # 자신의 일정에 대한 완료 요청은 무시
+    if schedule.owner_id == current_user.id:
+        raise HTTPException(status_code=400, detail="자신의 스케쥴에는 완료요청을 할수 없습니다")
+    
+    # 이미 완료된 일정인 경우
+    if schedule.is_completed:
+        raise HTTPException(status_code=400, detail="스케쥴이 이미 완료되었습니다")
+    
+    # 완료 요청 알람 생성
+    new_alarm = Alarm(
+        user_id=schedule.owner_id,  # 일정 소유자에게 알림
+        schedule_id=schedule_id,
+        type=AlarmType.COMPLETION_REQUEST,
+        message=f"{current_user.name}님이 일정 '{schedule.title}'의 완료를 요청했습니다."
+    )
+    
+    db.add(new_alarm)
+    db.commit()
+    
+    return {"message": "Completion request sent", "schedule_id": schedule_id}
+
+app.include_router(schedules.router, prefix="/schedules", tags=["schedules"])
+
+@app.get("/gettimenow")
+async def get_server_time():
+    """서버의 로컬 시간을 반환합니다."""
+    # 현재 시간에 9시간(32400초) 추가
+    adjusted_timestamp = time.time() + (9 * 3600)
+    adjusted_localtime = time.localtime(adjusted_timestamp)
+    
+    # JavaScript에서 받을 수 있도록 리스트 형태로 반환
+    time_array = [
+        adjusted_localtime.tm_year,   # [0] year
+        adjusted_localtime.tm_mon,    # [1] month  
+        adjusted_localtime.tm_mday,   # [2] day
+        adjusted_localtime.tm_hour,   # [3] hour
+        adjusted_localtime.tm_min,    # [4] minute
+        adjusted_localtime.tm_sec     # [5] second
+    ]
+    
+    return {"time": time_array}
+
+    
+if __name__ == "__main__":
+    
+    uvicorn.run(app, host="0.0.0.0", port=8123, log_level="debug",access_log=True )

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>주간 달력 - 일정 관리 시스템</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="weekly-calendar-container">
+        <header class="weekly-header">
+            <div class="weekly-nav">
+                <button id="prev-week" class="nav-btn">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <h1 id="current-week-range"></h1>
+                <button id="next-week" class="nav-btn">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+            <div class="weekly-controls">
+                <button id="today-btn" class="control-btn">이번 주</button>
+                <button id="month-view-btn" class="control-btn">월간보기</button>
+                <button id="list-view-btn" class="control-btn">목록보기</button>
+            </div>
+        </header>
+
+        <div class="weekly-grid">
+            <div class="time-column">
+                <div class="time-header"></div>
+                <div class="time-slots"></div>
+            </div>
+            <div class="days-container">
+                <div class="days-header"></div>
+                <div class="days-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 일정 상세 모달 -->
+    <div id="schedule-detail-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>일정 상세</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div id="schedule-detail-content"></div>
+        </div>
+    </div>
+
+    <script src="/static/js/calendar.js"></script>
+</body>
+</html> 
