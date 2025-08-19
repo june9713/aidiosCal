@@ -35,13 +35,17 @@
             </div>
             
             <div class="left-menu-section">
-                <h4>사용자 필터</h4>
+                <h4>사용자 필터 <span id="filtered-users-display"></span></h4>
                 <div class="user-filter-container">
                     <div id="user-checkboxes">
                         <div class="user-checkbox">
                             <input type="checkbox" id="user-all" value="all" onchange="toggleAllUsersFilter(this.checked)" checked="">
                             <label for="user-all">All</label>
                         </div>
+                    </div>
+                    <div class="schedule-info">
+                        <span id="schedule-count">총 0개 일정</span>
+                        <span id="loading-indicator" style="display: none;">로딩 중...</span>
                     </div>
                 </div>
             </div>
