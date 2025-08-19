@@ -169,8 +169,8 @@
                 <i class="fas fa-sticky-note"></i> 퀵메모 관리
             </h1>
             <div class="quicknote-actions">
-                <button onclick="goBack()" class="action-btn back-btn">
-                    <i class="fas fa-arrow-left"></i> 뒤로가기
+                <button onclick="goHome()" class="action-btn back-btn">
+                    <i class="fas fa-home"></i> 홈으로
                 </button>
                 <button onclick="showQuickNoteForm()" class="action-btn add-btn">
                     <i class="fas fa-plus"></i> 퀵메모 추가
@@ -328,8 +328,14 @@
             loadQuickNotes();
         }
 
-        function goBack() {
-            window.history.back();
+        function goHome() {
+            // URL에서 screen_id 추출
+            const pathSegments = window.location.pathname.split('/');
+            const lastSegment = pathSegments[pathSegments.length - 1];
+            const currentIndex = /^\d+$/.test(lastSegment) ? lastSegment : '0';
+            
+            // entryScreen으로 이동
+            window.location.href = `/entryScreen/${currentIndex}`;
         }
 
         function formatDateTime(dateString) {

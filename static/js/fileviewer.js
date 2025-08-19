@@ -37,9 +37,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('start-date').value = oneMonthAgo.toISOString().split('T')[0];
 });
 
-// 뒤로가기
-function goBack() {
-    window.history.back();
+// 홈으로 이동
+function goHome() {
+    // URL에서 screen_id 추출
+    const pathSegments = window.location.pathname.split('/');
+    const lastSegment = pathSegments[pathSegments.length - 1];
+    const currentIndex = /^\d+$/.test(lastSegment) ? lastSegment : '0';
+    
+    // entryScreen으로 이동
+    window.location.href = `/entryScreen/${currentIndex}`;
 }
 
 // 필터 옵션 로드
