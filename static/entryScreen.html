@@ -548,23 +548,8 @@
             try {
                 console.log('필터 상태 재적용 시작 - 화면 ID:', getScreenId());
                 
-                // selectedUsers Set 재구성
-                if (typeof selectedUsers !== 'undefined') {
-                    selectedUsers.clear();
-                    
-                    const savedCheckboxStates = localStorage.getItem('userCheckboxStates');
-                    if (savedCheckboxStates) {
-                        const activatedFilter = JSON.parse(savedCheckboxStates);
-                        
-                        if (activatedFilter.activated_id !== 'user-all') {
-                            // 사용자 ID 추출 (user-1 -> 1)
-                            const userId = activatedFilter.activated_id.replace('user-', '');
-                            if (!isNaN(userId)) {
-                                selectedUsers.add(parseInt(userId));
-                            }
-                        }
-                    }
-                }
+                // main.js의 restoreUserFilterState 함수가 이미 selectedUsers를 설정했으므로
+                // 여기서는 일정 목록만 다시 렌더링
                 
                 // 일정 목록 다시 렌더링
                 if (typeof renderSchedules === 'function') {

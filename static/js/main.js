@@ -235,6 +235,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             // 현재 사용자 정보 가져오기
             await getCurrentUserInfo();
+            
+            // 필터 상태 복원
+            restoreUserFilterState();
+            
+            // 필터 상태 복원 후 일정 로드
+            if (typeof main_loadSchedules === 'function') {
+                await main_loadSchedules(1, false);
+            }
         } catch (error) {
             log('ERROR', 'Failed to parse stored user data', error);
             clearSession();
@@ -2654,6 +2662,34 @@ async function updateMemo(scheduleId) {
 }
 
 // User Filtering Functions <label for="user-${user.id}">${user.name}</label>
+
+// 필터 상태 복원 함수
+function restoreUserFilterState() {
+    try {
+        const savedCheckboxStates = localStorage.getItem('userCheckboxStates');
+        if (savedCheckboxStates) {
+            const activatedFilter = JSON.parse(savedCheckboxStates);
+            console.log('🔍 [FILTER_RESTORE] 저장된 필터 상태:', activatedFilter);
+            
+            // selectedUsers Set 초기화
+            selectedUsers.clear();
+            
+            if (activatedFilter.activated_id !== 'user-all') {
+                // 사용자 ID 추출 (user-1 -> 1)
+                const userId = activatedFilter.activated_id.replace('user-', '');
+                if (!isNaN(userId)) {
+                    selectedUsers.add(parseInt(userId));
+                    console.log('🔍 [FILTER_RESTORE] 사용자 필터 복원됨:', userId);
+                }
+            } else {
+                console.log('🔍 [FILTER_RESTORE] 모든 사용자 필터 복원됨');
+            }
+        }
+    } catch (error) {
+        console.error('🔍 [FILTER_RESTORE] 필터 상태 복원 오류:', error);
+    }
+}
+
 async function loadUserCheckboxes() {
     const token = localStorage.getItem('token');
     if (!token) return;
@@ -2688,6 +2724,9 @@ async function loadUserCheckboxes() {
                     container.appendChild(div);
                 }
             });
+            
+            // 체크박스 상태 동기화
+            updateUserFilterCheckboxes();
         } else {
              log('ERROR', 'Failed to load users for filter', {status: response.status});
         }
