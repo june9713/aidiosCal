@@ -998,6 +998,14 @@ function handleScheduleClick(schedule) {
                         <div class="schedule-info-label">작성자</div>
                         <div class="schedule-info-value">${schedule.owner ? schedule.owner.name : '알 수 없음'}</div>
                         
+                        <div class="schedule-info-label">공동작업자</div>
+                        <div class="schedule-info-value" id="collaborators-list">
+                            <div class="loading-collaborators">
+                                <span style="display: inline-block; width: 12px; height: 12px; border: 2px solid #f3f3f3; border-top: 2px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 8px;"></span>
+                                공동작업자 정보를 불러오는 중...
+                            </div>
+                        </div>
+                        
                         <div class="schedule-info-label">부모작업</div>
                         <div class="schedule-info-value">
                             ${schedule.parent ? schedule.parent.title : '없음'}
@@ -1079,6 +1087,7 @@ function handleScheduleClick(schedule) {
     `;
     document.body.appendChild(modal);
     loadAttachmentsForModal(schedule.id);
+    loadCollaboratorsForModal(schedule.id);
 }
 
 // 후속 작업 관련 함수들
@@ -1209,6 +1218,80 @@ async function loadAttachmentsForModal(scheduleId) {
         log('ERROR', 'Load attachments error for modal', error);
         attachmentsList.innerHTML = '<p>첨부 파일 로딩 중 오류 발생.</p>';
     }
+}
+
+// 공동작업자 관련 함수들
+async function loadCollaboratorsForModal(scheduleId) {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    
+    const collaboratorsList = document.getElementById('collaborators-list');
+    if (!collaboratorsList) return;
+    
+    try {
+        const response = await fetch(`/schedules/${scheduleId}/collaborators`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+            const collaborators = await response.json();
+            renderCollaboratorsForModal(collaborators, scheduleId);
+        } else {
+            log('ERROR', 'Failed to load collaborators', {status: response.status});
+            let errorMessage = '공동작업자 정보를 불러오는데 실패했습니다.';
+            
+            if (response.status === 404) {
+                errorMessage = '일정을 찾을 수 없습니다.';
+            } else if (response.status === 401) {
+                errorMessage = '인증이 필요합니다.';
+            } else if (response.status === 403) {
+                errorMessage = '접근 권한이 없습니다.';
+            } else if (response.status >= 500) {
+                errorMessage = '서버 오류가 발생했습니다.';
+            }
+            
+            collaboratorsList.innerHTML = `<p style="color: #dc3545; font-size: 11px;">${errorMessage}</p>`;
+        }
+    } catch (error) {
+        log('ERROR', 'Load collaborators error for modal', error);
+        let errorMessage = '공동작업자 정보 로딩 중 오류 발생.';
+        
+        if (error.name === 'TypeError' && error.message.includes('fetch')) {
+            errorMessage = '네트워크 연결을 확인해주세요.';
+        }
+        
+        collaboratorsList.innerHTML = `<p style="color: #dc3545; font-size: 11px;">${errorMessage}</p>`;
+    }
+}
+
+function renderCollaboratorsForModal(collaborators, scheduleId) {
+    const collaboratorsList = document.getElementById('collaborators-list');
+    if (!collaboratorsList) return;
+    
+    if (collaborators.length === 0) {
+        collaboratorsList.innerHTML = '<span class="no-collaborators">공동작업자가 없습니다</span>';
+        return;
+    }
+    
+            const collaboratorsHtml = collaborators.map(collaborator => {
+            const permissions = [];
+            if (collaborator.can_edit) permissions.push('✏️ 수정');
+            if (collaborator.can_delete) permissions.push('🗑️ 삭제');
+            if (collaborator.can_complete) permissions.push('✅ 완료');
+            if (collaborator.can_share) permissions.push('📤 공유');
+            
+            const permissionsText = permissions.length > 0 ? permissions.join(' ') : '권한 없음';
+            
+            return `
+                <div class="collaborator-item">
+                    <span class="collaborator-name">${collaborator.name || collaborator.username}</span>
+                    <span class="collaborator-role">${collaborator.role || '협업자'}</span>
+                    <span class="collaborator-permissions">${permissionsText}</span>
+                </div>
+            `;
+        }).join('');
+    
+    collaboratorsList.innerHTML = collaboratorsHtml;
 }
 
 function renderAttachmentsForModal(attachments, scheduleId) {
