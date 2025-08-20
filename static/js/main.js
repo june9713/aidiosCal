@@ -921,6 +921,7 @@ function createScheduleRow(schedule, todayString) {
     let isDragging = false;
     let isRightClick = false;
     let startX, startY;
+    let hasMoved = false;
     
     tr.addEventListener('mousedown', (e) => {
         // 우클릭 감지 (버튼 2는 우클릭)
@@ -932,6 +933,7 @@ function createScheduleRow(schedule, todayString) {
         startX = e.clientX;
         startY = e.clientY;
         isDragging = false;
+        hasMoved = false;
         isRightClick = false;
     });
     
@@ -942,20 +944,22 @@ function createScheduleRow(schedule, todayString) {
             // 5px 이상 움직이면 드래그로 간주
             if (deltaX > 5 || deltaY > 5) {
                 isDragging = true;
+                hasMoved = true;
             }
         }
     });
     
     tr.addEventListener('mouseup', (e) => {
         // 우클릭이거나 드래그인 경우 클릭 이벤트 차단
-        if (!isDragging && !isRightClick) {
-            // 드래그가 아니고 우클릭도 아닌 경우에만 클릭 이벤트 처리
+        if (!hasMoved && !isRightClick) {
+            // 움직임이 없고 우클릭도 아닌 경우에만 클릭 이벤트 처리
             handleScheduleClick(schedule);
         }
         // 변수 초기화
         startX = undefined;
         startY = undefined;
         isDragging = false;
+        hasMoved = false;
         isRightClick = false;
     });
     
@@ -1000,6 +1004,7 @@ function createMemoRow(schedule, memoLine, memoIndex) {
     let isDragging = false;
     let isRightClick = false;
     let startX, startY;
+    let hasMoved = false;
     
     tr.addEventListener('mousedown', (e) => {
         // 우클릭 감지 (버튼 2는 우클릭)
@@ -1011,6 +1016,7 @@ function createMemoRow(schedule, memoLine, memoIndex) {
         startX = e.clientX;
         startY = e.clientY;
         isDragging = false;
+        hasMoved = false;
         isRightClick = false;
     });
     
@@ -1021,20 +1027,22 @@ function createMemoRow(schedule, memoLine, memoIndex) {
             // 5px 이상 움직이면 드래그로 간주
             if (deltaX > 5 || deltaY > 5) {
                 isDragging = true;
+                hasMoved = true;
             }
         }
     });
     
     tr.addEventListener('mouseup', (e) => {
         // 우클릭이거나 드래그인 경우 클릭 이벤트 차단
-        if (!isDragging && !isRightClick) {
-            // 드래그가 아니고 우클릭도 아닌 경우에만 클릭 이벤트 처리
+        if (!hasMoved && !isRightClick) {
+            // 움직임이 없고 우클릭도 아닌 경우에만 클릭 이벤트 처리
             handleScheduleClick(schedule);
         }
         // 변수 초기화
         startX = undefined;
         startY = undefined;
         isDragging = false;
+        hasMoved = false;
         isRightClick = false;
     });
     
