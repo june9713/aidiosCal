@@ -894,12 +894,12 @@ async def export_schedules_to_excel(
                 headers={'Content-Disposition': f'attachment; filename="{zip_filename}"'}
             )
         
-            except Exception as e:
-            logger.error(f"[EXCEL EXPORT ERROR] {str(e)}")
-            raise HTTPException(
-                status_code=500,
-                detail=f"엑셀 파일 생성 중 오류가 발생했습니다: {str(e)}"
-            )
+    except Exception as e:
+        logger.error(f"[EXCEL EXPORT ERROR] {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"엑셀 파일 생성 중 오류가 발생했습니다: {str(e)}"
+        )
 
 @router.get("/{schedule_id}/collaborators")
 def get_schedule_collaborators(
