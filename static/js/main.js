@@ -919,12 +919,20 @@ function createScheduleRow(schedule, todayString) {
     
     // 드래그와 클릭을 구분하기 위한 변수들
     let isDragging = false;
+    let isRightClick = false;
     let startX, startY;
     
     tr.addEventListener('mousedown', (e) => {
+        // 우클릭 감지 (버튼 2는 우클릭)
+        if (e.button === 2) {
+            isRightClick = true;
+            return;
+        }
+        
         startX = e.clientX;
         startY = e.clientY;
         isDragging = false;
+        isRightClick = false;
     });
     
     tr.addEventListener('mousemove', (e) => {
@@ -939,19 +947,22 @@ function createScheduleRow(schedule, todayString) {
     });
     
     tr.addEventListener('mouseup', (e) => {
-        if (!isDragging) {
-            // 드래그가 아닌 경우에만 클릭 이벤트 처리
+        // 우클릭이거나 드래그인 경우 클릭 이벤트 차단
+        if (!isDragging && !isRightClick) {
+            // 드래그가 아니고 우클릭도 아닌 경우에만 클릭 이벤트 처리
             handleScheduleClick(schedule);
         }
         // 변수 초기화
         startX = undefined;
         startY = undefined;
         isDragging = false;
+        isRightClick = false;
     });
     
     // 컨텍스트 메뉴 (우클릭 또는 길게 누르기)
     tr.addEventListener('contextmenu', (e) => {
         e.preventDefault();
+        isRightClick = true; // 우클릭 플래그 설정
         showContextMenu(e, schedule);
     });
     // (터치 이벤트 리스너 추가 필요)
@@ -987,12 +998,20 @@ function createMemoRow(schedule, memoLine, memoIndex) {
     
     // 메모 행 클릭 시 부모 스케줄 상세보기 (드래그와 클릭 구분)
     let isDragging = false;
+    let isRightClick = false;
     let startX, startY;
     
     tr.addEventListener('mousedown', (e) => {
+        // 우클릭 감지 (버튼 2는 우클릭)
+        if (e.button === 2) {
+            isRightClick = true;
+            return;
+        }
+        
         startX = e.clientX;
         startY = e.clientY;
         isDragging = false;
+        isRightClick = false;
     });
     
     tr.addEventListener('mousemove', (e) => {
@@ -1007,19 +1026,22 @@ function createMemoRow(schedule, memoLine, memoIndex) {
     });
     
     tr.addEventListener('mouseup', (e) => {
-        if (!isDragging) {
-            // 드래그가 아닌 경우에만 클릭 이벤트 처리
+        // 우클릭이거나 드래그인 경우 클릭 이벤트 차단
+        if (!isDragging && !isRightClick) {
+            // 드래그가 아니고 우클릭도 아닌 경우에만 클릭 이벤트 처리
             handleScheduleClick(schedule);
         }
         // 변수 초기화
         startX = undefined;
         startY = undefined;
         isDragging = false;
+        isRightClick = false;
     });
     
     // 컨텍스트 메뉴 (우클릭 또는 길게 누르기)
     tr.addEventListener('contextmenu', (e) => {
         e.preventDefault();
+        isRightClick = true; // 우클릭 플래그 설정
         showContextMenu(e, schedule);
     });
     
