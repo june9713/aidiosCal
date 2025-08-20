@@ -125,11 +125,12 @@ def read_schedules(
     search_in_title: bool = True,
     search_in_content: bool = True,
     search_in_memo: bool = True,
+    user_ids: Optional[List[int]] = Query(None),  # 사용자 ID 리스트 추가
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
     """일정 목록을 반환합니다."""
-    #logger.info(f"[TIME_DEBUG] read_schedules called - start_date: {start_date}, end_date: {end_date}")
+    logger.info(f"read_schedules called - user_ids: {user_ids}, show_all_users: {show_all_users}")
     
     query = db.query(Schedule)
 
@@ -141,16 +142,54 @@ def read_schedules(
         # 자신의 일정만 조회
         query = query.filter(Schedule.owner_id == current_user.id)
     else:
-        # 모든 사용자 일정을 보되, 다른 사용자의 개인일정은 제외
-        query = query.filter(
-            or_(
-                Schedule.owner_id == current_user.id,  # 자신의 모든 일정
-                and_(
-                    Schedule.owner_id != current_user.id,  # 다른 사용자의 일정 중
-                    Schedule.individual == False  # 개인일정이 아닌 것만
+        # 공동작업자가 선택된 경우 특별 처리
+        if user_ids and len(user_ids) > 0:
+            # 선택된 사용자들이 공동작업자인지 확인
+            from app.core.permissions import check_if_users_are_collaborators
+            from app.core.permissions import get_accessible_users_for_collaborators
+            
+            selected_users_are_collaborators = check_if_users_are_collaborators(db, current_user.id, user_ids)
+            
+            if selected_users_are_collaborators:
+                # 공동작업자가 선택된 경우, 해당 공동일정에 포함된 사람들의 개인일정만 표시
+                accessible_user_ids = get_accessible_users_for_collaborators(db, current_user.id, user_ids)
+                logger.info(f"Collaborators selected. Accessible users: {accessible_user_ids}")
+                
+                query = query.filter(
+                    or_(
+                        Schedule.owner_id == current_user.id,  # 자신의 모든 일정
+                        and_(
+                            Schedule.owner_id.in_(accessible_user_ids),  # 접근 가능한 사용자의 일정
+                            Schedule.individual == True  # 개인일정만
+                        ),
+                        and_(
+                            Schedule.owner_id != current_user.id,  # 다른 사용자의 일정 중
+                            Schedule.individual == False  # 개인일정이 아닌 것만
+                        )
+                    )
+                )
+            else:
+                # 일반 사용자 필터링
+                query = query.filter(
+                    or_(
+                        Schedule.owner_id == current_user.id,  # 자신의 모든 일정
+                        and_(
+                            Schedule.owner_id.in_(user_ids),  # 선택된 사용자의 일정
+                            Schedule.individual == False  # 개인일정이 아닌 것만
+                        )
+                    )
+                )
+        else:
+            # 모든 사용자 일정을 보되, 다른 사용자의 개인일정은 제외
+            query = query.filter(
+                or_(
+                    Schedule.owner_id == current_user.id,  # 자신의 모든 일정
+                    and_(
+                        Schedule.owner_id != current_user.id,  # 다른 사용자의 일정 중
+                        Schedule.individual == False  # 개인일정이 아닌 것만
+                    )
                 )
             )
-        )
 
     # 완료 상태 필터링
     if completed_only:
@@ -160,10 +199,10 @@ def read_schedules(
 
     # 날짜 범위 필터링
     if start_date:
-        #logger.info(f"[TIME_DEBUG] Filtering with start_date: {start_date}")
+        logger.info(f"[TIME_DEBUG] Filtering with start_date: {start_date}")
         query = query.filter(Schedule.date >= start_date)
     if end_date:
-        #logger.info(f"[TIME_DEBUG] Filtering with end_date: {end_date}")
+        logger.info(f"[TIME_DEBUG] Filtering with end_date: {end_date}")
         query = query.filter(Schedule.date <= end_date)
 
     # 검색어 필터링
@@ -210,13 +249,7 @@ def read_schedules(
 
     schedules = query.offset(skip).limit(limit).all()
     
-    # 시간 디버깅 로그 추가
-    #for schedule in schedules[:3]:  # 처음 3개 일정만 로그
-    #    logger.info(f"[TIME_DEBUG] Schedule ID: {schedule.id}, Title: {schedule.title}")
-   #     logger.info(f"[TIME_DEBUG] - date: {schedule.date}")
-   #     logger.info(f"[TIME_DEBUG] - due_time: {schedule.due_time}")
-   #     logger.info(f"[TIME_DEBUG] - created_at: {schedule.created_at}")
-    
+    logger.info(f"Returning {len(schedules)} schedules for user {current_user.id}")
     return schedules
 
 @router.get("/{schedule_id}", response_model=ScheduleSchema)

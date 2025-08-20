@@ -4,7 +4,7 @@
 이 모듈은 일정에 대한 사용자의 권한을 확인하고 관리하는 함수들을 제공합니다.
 """
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from app.models.models import User, Schedule, ScheduleShare
 from typing import List, Optional, Dict
 import logging
@@ -173,7 +173,7 @@ def can_share_schedule(db: Session, user_id: int, schedule_id: int) -> bool:
 
 def get_schedule_collaborators(db: Session, schedule_id: int) -> List[Dict]:
     """
-    특정 일정의 공동 작업자 목록을 가져옴
+    특정 일정의 공동 작업자 목록을 반환
     
     Args:
         db: 데이터베이스 세션
@@ -183,35 +183,123 @@ def get_schedule_collaborators(db: Session, schedule_id: int) -> List[Dict]:
         List[Dict]: 공동 작업자 정보 리스트
     """
     try:
-        collaborators = []
-        
-        # ScheduleShare 테이블에서 공동 작업자 정보 조회
         shares = db.query(ScheduleShare).filter(
             ScheduleShare.schedule_id == schedule_id
+        ).options(
+            joinedload(ScheduleShare.shared_with)
         ).all()
         
+        collaborators = []
         for share in shares:
-            user = db.query(User).filter(User.id == share.shared_with_id).first()
-            if user:
-                collaborator_info = {
-                    "id": user.id,
-                    "username": user.username,
-                    "name": user.name,
-                    "role": getattr(share, 'role', 'collaborator'),
-                    "can_edit": getattr(share, 'can_edit', True),
-                    "can_delete": getattr(share, 'can_delete', True),
-                    "can_complete": getattr(share, 'can_complete', True),
-                    "can_share": getattr(share, 'can_share', True),
-                    "added_at": getattr(share, 'added_at', None)
-                }
-                collaborators.append(collaborator_info)
+            collaborator_info = {
+                "user_id": share.shared_with_id,
+                "username": share.shared_with.username,
+                "name": share.shared_with.name,
+                "can_edit": getattr(share, 'can_edit', True),
+                "can_delete": getattr(share, 'can_delete', True),
+                "can_complete": getattr(share, 'can_complete', True),
+                "can_share": getattr(share, 'can_share', True),
+                "role": getattr(share, 'role', 'collaborator'),
+                "added_at": share.added_at
+            }
+            collaborators.append(collaborator_info)
         
         logger.info(f"Found {len(collaborators)} collaborators for schedule {schedule_id}")
         return collaborators
-        
     except Exception as e:
         logger.error(f"Error getting schedule collaborators: {e}")
         return []
+
+def check_if_users_are_collaborators(db: Session, current_user_id: int, user_ids: List[int]) -> bool:
+    """
+    선택된 사용자들이 현재 사용자와 공동작업자 관계인지 확인
+    
+    Args:
+        db: 데이터베이스 세션
+        current_user_id: 현재 사용자 ID
+        user_ids: 확인할 사용자 ID 리스트
+    
+    Returns:
+        bool: 모든 선택된 사용자가 공동작업자인 경우 True
+    """
+    try:
+        if not user_ids:
+            return False
+            
+        # 현재 사용자가 소유한 일정 중에서 선택된 사용자들과 공유된 일정이 있는지 확인
+        shared_schedules = db.query(ScheduleShare).join(Schedule).filter(
+            Schedule.owner_id == current_user_id,
+            ScheduleShare.shared_with_id.in_(user_ids)
+        ).first()
+        
+        if shared_schedules:
+            logger.info(f"Users {user_ids} are collaborators of current user {current_user_id}")
+            return True
+            
+        # 현재 사용자가 다른 사용자의 일정에 공동작업자로 포함된 경우도 확인
+        for user_id in user_ids:
+            user_schedules = db.query(ScheduleShare).filter(
+                ScheduleShare.schedule_id == Schedule.id,
+                Schedule.owner_id == user_id,
+                ScheduleShare.shared_with_id == current_user_id
+            ).first()
+            
+            if user_schedules:
+                logger.info(f"Current user {current_user_id} is collaborator of user {user_id}")
+                return True
+        
+        logger.info(f"Users {user_ids} are not collaborators of current user {current_user_id}")
+        return False
+        
+    except Exception as e:
+        logger.error(f"Error checking if users are collaborators: {e}")
+        return False
+
+def get_accessible_users_for_collaborators(db: Session, current_user_id: int, collaborator_user_ids: List[int]) -> List[int]:
+    """
+    공동작업자가 선택된 경우, 접근 가능한 사용자들의 ID 리스트를 반환
+    
+    Args:
+        db: 데이터베이스 세션
+        current_user_id: 현재 사용자 ID
+        collaborator_user_ids: 공동작업자 사용자 ID 리스트
+    
+    Returns:
+        List[int]: 접근 가능한 사용자 ID 리스트
+    """
+    try:
+        accessible_users = set()
+        accessible_users.add(current_user_id)  # 자신은 항상 접근 가능
+        
+        # 선택된 공동작업자들 추가
+        accessible_users.update(collaborator_user_ids)
+        
+        # 현재 사용자가 소유한 일정에 포함된 다른 공동작업자들 찾기
+        current_user_collaborators = db.query(ScheduleShare.shared_with_id).filter(
+            ScheduleShare.schedule_id == Schedule.id,
+            Schedule.owner_id == current_user_id
+        ).distinct().all()
+        
+        for collaborator in current_user_collaborators:
+            accessible_users.add(collaborator[0])
+        
+        # 선택된 공동작업자들이 소유한 일정에 포함된 다른 사용자들 찾기
+        for collaborator_id in collaborator_user_ids:
+            collaborator_schedules = db.query(ScheduleShare.shared_with_id).filter(
+                ScheduleShare.schedule_id == Schedule.id,
+                Schedule.owner_id == collaborator_id
+            ).distinct().all()
+            
+            for shared_user in collaborator_schedules:
+                accessible_users.add(shared_user[0])
+        
+        result = list(accessible_users)
+        logger.info(f"Accessible users for collaborators {collaborator_user_ids}: {result}")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error getting accessible users for collaborators: {e}")
+        return [current_user_id]  # 오류 발생 시 최소한 자신만 접근 가능
 
 def add_collaborator_to_schedule(
     db: Session, 
