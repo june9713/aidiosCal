@@ -12,12 +12,23 @@
     <div id="auth-container">
         <details id="alarm-collapsible" class="alarm-collapsible">
             <summary class="alarm-header-collapsible">
-                <button onclick="showAddScheduleForm()" class="add-schedule-btn">
-                    <i class="fas fa-plus"></i> 일정
-                </button>
-                <button onclick="showQuickNoteForm()" class="add-qicknote-btn">
-                    <i class="fas fa-sticky-note"></i> 퀵노트
-                </button>
+                <div class="alarm-header-buttons">
+                    <button onclick="showAddScheduleForm()" class="add-schedule-btn">
+                        <i class="fas fa-plus"></i> 
+                    </button>
+                    <button onclick="showQuickNoteForm()" class="add-qicknote-btn">
+                        <i class="fas fa-sticky-note"></i> Q+
+                    </button>
+                    <button onclick="showAddScheduleForm()" class="icon-btn upload-btn" title="파일 업로드">
+                        <i class="fas fa-upload"></i>
+                    </button>
+                    <button onclick="showQuickNoteView()" class="icon-btn quicknote-view-btn" title="퀵노트 보기">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button onclick="toggleFileView()" class="icon-btn file-view-btn" title="첨부파일 보기">
+                        <i class="fas fa-paperclip"></i>
+                    </button>
+                </div>
                 <div class="user-info"></div>
                 
                 <h3>알람</h3>

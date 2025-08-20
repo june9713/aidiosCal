@@ -4060,3 +4060,8 @@ function initializeCollaborators(formType = 'add') {
         console.log(`[DEBUG] initializeCollaborators 완료`);
     });
 }
+
+// 퀵노트 보기 함수 (아이콘 버튼용)
+function showQuickNoteView() {
+    window.location.href = '/static/quicknote.html';
+}
