@@ -746,6 +746,15 @@ function renderSchedules() {
         // 일반 일정 행 생성
         const tr = createScheduleRow(schedule, todayString);
         fragment.appendChild(tr);
+        
+        // 메모가 있는 경우 자식 라인 추가
+        if (schedule.memo && schedule.memo.trim()) {
+            const memoLines = schedule.memo.split('\n').filter(line => line.trim());
+            memoLines.forEach((memoLine, memoIndex) => {
+                const memoTr = createMemoRow(schedule, memoLine, memoIndex + 1);
+                fragment.appendChild(memoTr);
+            });
+        }
     });
 
     // 모든 일정이 오늘보다 이전 날짜이거나 일정이 없는 경우, 마지막에 더미 행 추가
@@ -778,6 +787,34 @@ function createTodayDummyRow(todayString) {
     `;
     
     return dummyTr;
+}
+
+// 메모 행을 생성하는 함수
+function createMemoRow(schedule, memoLine, memoIndex) {
+    const tr = document.createElement('tr');
+    tr.className = 'memo-row';
+    tr.dataset.scheduleId = schedule.id;
+    tr.dataset.memoIndex = memoIndex;
+    
+    // 메모 행 스타일 설정
+    tr.style.backgroundColor = '#f8f9fa';
+    tr.style.fontSize = '0.9em';
+    tr.style.color = '#6c757d';
+    tr.style.borderLeft = '3px solid #007bff';
+    
+    tr.innerHTML = `
+        <td data-label="날짜"></td>
+        <td data-label="작성자"></td>
+        <td data-label="프로젝트"></td>
+        <td data-label="제목" style="padding-left: 20px;">
+            📝 ${memoLine}
+        </td>
+    `;
+    
+    // 메모 행 클릭 시 부모 스케줄 상세보기
+    tr.addEventListener('click', () => handleScheduleClick(schedule));
+    
+    return tr;
 }
 
 // 일정 행을 생성하는 별도 함수
@@ -850,6 +887,29 @@ function createScheduleRow(schedule, todayString) {
     tr.addEventListener('touchend', () => clearTimeout(touchTimer));
     tr.addEventListener('touchmove', () => clearTimeout(touchTimer));
 
+    return tr;
+}
+
+// 메모 행을 생성하는 함수 (자식 라인)
+function createMemoRow(schedule, memoLine, memoIndex) {
+    const tr = document.createElement('tr');
+    tr.className = 'memo-row';
+    tr.dataset.scheduleId = schedule.id;
+    tr.dataset.memoIndex = memoIndex;
+    
+    // 메모 내용을 제목 열에 표시 (들여쓰기로 구분)
+    const memoContent = `  --->📝 ${memoLine}`;
+    
+    tr.innerHTML = `
+        <td data-label="날짜"></td>
+        <td data-label="작성자"></td>
+        <td data-label="프로젝트"></td>
+        <td data-label="제목">${memoContent}</td>
+    `;
+    
+    // 메모 행 클릭 시 부모 스케줄 상세보기
+    tr.addEventListener('click', () => handleScheduleClick(schedule));
+    
     return tr;
 }
 
