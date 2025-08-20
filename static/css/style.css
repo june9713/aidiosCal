@@ -758,6 +758,15 @@ details[open] .toggle-icon {
     color: white ;
  }
  
+ /* 본인이 작성한 일정의 작성자 컬럼 스타일 */
+ .my-schedule-author {
+    background-color: #4caf50 !important; /* 초록색 배경 */
+    color: white !important; /* 흰색 텍스트 */
+    font-weight: bold !important; /* 굵은 글씨 */
+    border-radius: 4px; /* 모서리 둥글게 */
+    padding: 4px 8px !important; /* 패딩 조정 */
+ }
+ 
 
   /* 섹션 02 */
 
@@ -3295,18 +3304,63 @@ details[open] .toggle-icon {
 /* 특정 컬럼에 대한 최소 너비 설정 */
  .schedule-table th:nth-child(1) { /* 날짜 컬럼 */
     min-width: 120px;
+    width: 120px; /* 고정 너비 */
  }
  
- .schedule-table th:nth-child(2) { /* 프로젝트 컬럼 */
-    min-width: 100px;
- }
- 
- .schedule-table th:nth-child(3) { /* 작성자 컬럼 */
+ .schedule-table th:nth-child(2) { /* 작성자 컬럼 */
     min-width: 80px;
+    width: 100px; /* 고정 너비 */
+ }
+ 
+ .schedule-table th:nth-child(3) { /* 프로젝트 컬럼 */
+    min-width: 100px;
+    width: 150px; /* 기본 너비, 화면에 따라 조정 */
+    max-width: 200px; /* 최대 너비 제한 */
  }
  
  .schedule-table th:nth-child(4) { /* 제목 컬럼 */
     width: auto; /* 나머지 공간 모두 사용 */
     white-space: normal; /* 제목은 줄바꿈 허용 */
+    min-width: 200px; /* 최소 너비 보장 */
  }
+
+/* 반응형 테이블 레이아웃 */
+.schedule-table {
+    table-layout: fixed; /* 고정 레이아웃으로 변경하여 컬럼 너비 제어 */
+    width: 100%;
+}
+
+/* 화면 크기에 따른 반응형 조정 */
+@media (max-width: 1200px) {
+    .schedule-table th:nth-child(3) { /* 프로젝트 컬럼 */
+        width: 120px;
+        max-width: 150px;
+    }
+    
+    .schedule-table th:nth-child(4) { /* 제목 컬럼 */
+        min-width: 150px;
+    }
+}
+
+@media (max-width: 768px) {
+    .schedule-table th:nth-child(1) { /* 날짜 컬럼 */
+        width: 100px;
+        min-width: 80px;
+    }
+    
+    .schedule-table th:nth-child(2) { /* 작성자 컬럼 */
+        width: 80px;
+        min-width: 60px;
+    }
+    
+    .schedule-table th:nth-child(3) { /* 프로젝트 컬럼 */
+        width: 100px;
+        min-width: 80px;
+        max-width: 120px;
+    }
+    
+    .schedule-table th:nth-child(4) { /* 제목 컬럼 */
+        min-width: 120px;
+    }
+}
 

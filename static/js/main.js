@@ -1,6 +1,39 @@
 // 시간 처리를 일관되게 하기 위해 getCurrentTime 함수를 제거하고 new Date()를 직접 사용
 // 서버에서 한국시간으로 처리되므로 클라이언트는 UTC 기준으로 일관되게 처리
 
+// 현재 사용자 정보를 저장할 전역 변수
+let currentUser = null;
+
+// 현재 사용자 정보를 가져오는 함수
+async function getCurrentUserInfo() {
+    try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            console.error('토큰이 없습니다.');
+            return null;
+        }
+        
+        const response = await fetch('/users/me', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (response.ok) {
+            const userData = await response.json();
+            currentUser = userData;
+            console.log('현재 사용자 정보:', currentUser);
+            return userData;
+        } else {
+            console.error('사용자 정보 로드 실패:', response.status);
+            return null;
+        }
+    } catch (error) {
+        console.error('사용자 정보 로드 중 오류:', error);
+        return null;
+    }
+}
+
 // JWT 토큰 디코딩 유틸리티 함수 추가
 function decodeJWTToken(token) {
     try {
@@ -199,6 +232,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             
             await fetchUserProfile();
+            
+            // 현재 사용자 정보 가져오기
+            await getCurrentUserInfo();
         } catch (error) {
             log('ERROR', 'Failed to parse stored user data', error);
             clearSession();
@@ -367,6 +403,9 @@ async function handleLogin(e) {
             localStorage.setItem('username', username);
             localStorage.setItem('tokenCreatedAt', Date.now().toString()); // 토큰 생성 시간 저장 추가
             await fetchUserProfile(); // 토큰 파라미터 제거
+            
+            // 현재 사용자 정보 가져오기
+            await getCurrentUserInfo();
             
             // 로그인 성공 시 lastPage 초기화 후 루트 경로로 리다이렉트
             localStorage.removeItem('lastPage');  // 기존 마지막 페이지 정보 제거
@@ -733,8 +772,8 @@ function createTodayDummyRow(todayString) {
     
     dummyTr.innerHTML = `
         <td data-label="날짜" >${todayString}</td>
-        <td data-label="프로젝트">오늘</td>
         <td data-label="작성자"></td>
+        <td data-label="프로젝트">오늘</td>
         <td data-label="제목">오늘 등록된 일정이 없습니다</td>
     `;
     
@@ -780,10 +819,18 @@ function createScheduleRow(schedule, todayString) {
     // 날짜는 마감시간으로 표시
     tr.innerHTML = `
         <td data-label="날짜" ${isToday ? 'style=" background-color:rgb(148, 210, 255);"' : ''}>${isToday ? '오늘' : scheduleDateString}</td>
+        <td data-label="작성자" id="author-${schedule.id}">${schedule.owner ? schedule.owner.name : '알수없음'}</td>
         <td data-label="프로젝트">${schedule.project_name || '일정'}</td>
-        <td data-label="작성자">${schedule.owner ? schedule.owner.name : '알수없음'}</td>
         <td data-label="제목">${formatPriorityIcon(schedule.priority)} ${displayTitle}</td>
     `;
+    
+    // 작성자가 본인인지 확인하고 스타일 적용
+    if (currentUser && schedule.owner && schedule.owner.name === currentUser.name) {
+        const authorCell = tr.querySelector(`#author-${schedule.id}`);
+        if (authorCell) {
+            authorCell.classList.add('my-schedule-author');
+        }
+    }
     
     tr.addEventListener('click', () => handleScheduleClick(schedule)); // 변경된 함수 호출
     

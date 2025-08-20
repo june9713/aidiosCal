@@ -636,6 +636,7 @@ function renderSchedules() {
         tr.innerHTML = `
             <td data-label="날짜">${schedule.due_time ? formatDateToMonthDay(schedule.due_time) : formatDateToMonthDay(schedule.date)}</td>
             <td data-label="작성자">${schedule.owner ? schedule.owner.name : '알수없음'}</td>
+            <td data-label="프로젝트">${schedule.project_name || '일정'}</td>
             <td data-label="제목">${formatPriorityIcon(schedule.priority)} ${displayTitle}</td>
         `;
         tr.addEventListener('click', () => handleScheduleClick(schedule)); // 변경된 함수 호출
