@@ -946,7 +946,7 @@ function createMemoRow(schedule, memoLine, memoIndex) {
     tr.dataset.memoIndex = memoIndex;
     
     // 작성자, 프로젝트, 제목을 모두 merge하여 작성자 칸부터 표시
-    const memoContent = `  --->📝 ${memoLine}`;
+    const memoContent = `-->📝 ${memoLine}`;
     
     tr.innerHTML = `
         <td data-label="날짜"></td>
