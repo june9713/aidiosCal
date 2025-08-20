@@ -655,16 +655,26 @@ async function main_loadSchedules(page = 1, append = false) {
     }
 
     if (selectedUsers.size > 0) {
+        // 백엔드에서 선택된 사용자의 일정 + 해당 사용자가 공동작업자인 일정을 모두 반환
         selectedUsers.forEach(userId => params.append('user_ids', userId));
+        console.log('🔍 [FRONTEND_DEBUG] 선택된 사용자들:', Array.from(selectedUsers));
     }
     
+    console.log('🔍 [FRONTEND_DEBUG] 최종 요청 파라미터:', params.toString());
+    console.log('🔍 [FRONTEND_DEBUG] show_all_users 파라미터 전송 여부:', params.has('show_all_users'));
     log('DEBUG', `Requesting schedules from: /schedules/?${params.toString()}`);
 
     try {
         const response = await apiRequest(`/schedules/?${params.toString()}`);
+        //console.log('🔍 [FRONTEND_DEBUG] 응답 상태:', response.status);
+        
         if (response.ok) {
             const data = await response.json(); // FastAPI가 객체 {schedules: [], total_count: N}를 반환한다고 가정
             const newSchedules = data.schedules || (Array.isArray(data) ? data : []); // 호환성
+            
+            //console.log('🔍 [FRONTEND_DEBUG] 받은 데이터:', data);
+            //console.log('🔍 [FRONTEND_DEBUG] 파싱된 일정 수:', newSchedules.length);
+            //console.log('🔍 [FRONTEND_DEBUG] 첫 번째 일정:', newSchedules[0]);
             
             if (append) {
                 window.schedules = window.schedules.concat(newSchedules);
@@ -708,7 +718,12 @@ function renderSchedules() {
         // 클라이언트 사이드 필터링 (선택 사항, 백엔드 필터링이 주력)
         if (completedOnly && !schedule.is_completed) return;
         if (!showCompleted && schedule.is_completed && !completedOnly) return;
-        if (selectedUsers.size > 0 && !selectedUsers.has(schedule.owner_id)) return;
+        // 백엔드에서 이미 선택된 사용자의 일정과 해당 사용자가 공동작업자인 일정을 모두 보내주므로
+        // 프론트엔드에서 추가 필터링할 필요가 없음
+        // 기존 코드: if (selectedUsers.size > 0 && !selectedUsers.has(schedule.owner_id)) return;
+        if (selectedUsers.size > 0) {
+            ;//console.log('🔍 [FRONTEND_DEBUG] 사용자 필터 적용됨 - 백엔드에서 이미 필터링된 데이터를 받음');
+        }
         
         filteredSchedules.push(schedule);
         
@@ -728,18 +743,28 @@ function renderSchedules() {
 
     // 더미 행이 삽입될 위치 찾기
     let dummyInserted = false;
-    const todayDate = todayString; // 한국시간 기준 날짜 사용
-
+    
+    // 오늘 날짜를 Date 객체로 변환 (한국시간 기준)
+    const koreaTimeOffset = 9 * 60 * 60 * 1000; // 9시간을 밀리초로
+    const koreaToday = new Date(today.getTime() + koreaTimeOffset);
+    const todayDate = new Date(koreaToday.getFullYear(), koreaToday.getMonth(), koreaToday.getDate());
+    
     filteredSchedules.forEach((schedule, index) => {
         // 더미 행을 적절한 위치에 삽입
         if (!hasTodaySchedule && !dummyInserted) {
             const scheduleDate = schedule.due_time ? new Date(schedule.due_time) : null;
             
-            // 현재 일정의 날짜가 오늘보다 나중이면, 이 위치에 더미 행 삽입
-            if (scheduleDate && scheduleDate > todayDate) {
-                const dummyTr = createTodayDummyRow(todayString);
-                fragment.appendChild(dummyTr);
-                dummyInserted = true;
+            if (scheduleDate) {
+                // 일정 날짜를 한국 시간 기준으로 변환
+                const scheduleKoreaDate = new Date(scheduleDate.getTime() + koreaTimeOffset);
+                const scheduleDateOnly = new Date(scheduleKoreaDate.getFullYear(), scheduleKoreaDate.getMonth(), scheduleKoreaDate.getDate());
+                
+                // 현재 일정의 날짜가 오늘보다 나중이면, 이 위치에 더미 행 삽입
+                if (scheduleDateOnly > todayDate) {
+                    const dummyTr = createTodayDummyRow(todayString);
+                    fragment.appendChild(dummyTr);
+                    dummyInserted = true;
+                }
             }
         }
 
@@ -853,10 +878,24 @@ function createScheduleRow(schedule, todayString) {
     // 오늘 날짜인지 확인
     const isToday = scheduleDateString === todayString;
 
+    // 공동작업자 배경색 적용 여부 확인
+    let isCollaboratorAuthor = false;
+    if (selectedUsers.size === 1) {
+        // 1명만 선택된 경우에만 공동작업자 배경색 적용
+        const selectedUserId = Array.from(selectedUsers)[0];
+        const isSelectedUserSchedule = schedule.owner_id === selectedUserId;
+        const isCollaboratorSchedule = schedule.shares && schedule.shares.some(share => share.shared_with_id === selectedUserId);
+        
+        // 선택된 사용자가 소유한 일정이 아니지만, 공동작업자로 포함된 일정인 경우
+        if (!isSelectedUserSchedule && isCollaboratorSchedule) {
+            isCollaboratorAuthor = true;
+        }
+    }
+
     // 날짜는 마감시간으로 표시
     tr.innerHTML = `
         <td data-label="날짜" ${isToday ? 'style=" background-color:rgb(148, 210, 255);"' : ''}>${isToday ? '오늘' : scheduleDateString}</td>
-        <td data-label="작성자" id="author-${schedule.id}">${schedule.owner ? schedule.owner.name : '알수없음'}</td>
+        <td data-label="작성자" id="author-${schedule.id}" class="${isCollaboratorAuthor ? 'collaborator-author' : ''}">${schedule.owner ? schedule.owner.name : '알수없음'}</td>
         <td data-label="프로젝트">${schedule.project_name || '일정'}</td>
         <td data-label="제목">${formatPriorityIcon(schedule.priority)} ${displayTitle}</td>
     `;

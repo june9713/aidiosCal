@@ -74,6 +74,11 @@ select[multiple] {
    user-select: none;
 }
 
+/* 공동작업자 배경색 스타일 */
+.collaborator-author {
+   background-color: #E0F7FA !important; /* 연한 청록색 */
+}
+
 select[multiple] option {
    padding: 8px 12px;
    border-bottom: 1px solid #f0f0f0;

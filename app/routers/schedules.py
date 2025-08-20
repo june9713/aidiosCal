@@ -266,66 +266,71 @@ def read_schedules(
     current_user: User = Depends(get_current_active_user)
 ):
     """일정 목록을 반환합니다."""
+    print(f"🔍 [DEBUG] read_schedules 시작 - user_ids: {user_ids}, show_all_users: {show_all_users}")
+    print(f"🔍 [DEBUG] 현재 사용자: {current_user.username} (ID: {current_user.id})")
     logger.info(f"read_schedules called - user_ids: {user_ids}, show_all_users: {show_all_users}")
     
     query = db.query(Schedule)
 
     # 삭제되지 않은 일정만 조회
     query = query.filter(Schedule.is_deleted == False)
+    print(f"🔍 [DEBUG] 삭제되지 않은 일정만 필터링 완료")
 
     # 사용자 및 개인일정 필터링
-    if not show_all_users:
+    print(f"🔍 [DEBUG] 사용자 필터링 시작 - show_all_users: {show_all_users}")
+    print(f"🔍 [DEBUG] user_ids 파라미터: {user_ids}")
+    print(f"🔍 [DEBUG] 현재 사용자 ID: {current_user.id}")
+    
+    # 사용자 ID가 제공된 경우, show_all_users 값과 관계없이 선택된 사용자만 필터링
+    if user_ids and len(user_ids) > 0:
+        print(f"🔍 [DEBUG] 사용자 ID 선택됨: {user_ids}")
+        print(f"🔍 [DEBUG] show_all_users 무시하고 선택된 사용자만 필터링")
+        
+        # 선택된 사용자가 공동작업자로 포함된 일정들 조회
+        collaborator_schedules = db.query(ScheduleShare.schedule_id).filter(
+            ScheduleShare.shared_with_id.in_(user_ids)
+        ).all()
+        collaborator_schedule_ids = [s[0] for s in collaborator_schedules]
+        print(f"🔍 [DEBUG] 선택된 사용자가 공동작업자로 포함된 일정 ID들: {collaborator_schedule_ids}")
+        
+        # 현재 사용자가 선택된 사용자 목록에 포함되어 있는지 확인
+        current_user_in_selection = current_user.id in user_ids
+        print(f"🔍 [DEBUG] 현재 사용자({current_user.id})가 선택된 사용자 목록에 포함됨: {current_user_in_selection}")
+        
+        # 필터링 조건 구성
+        filter_conditions = [
+            Schedule.owner_id.in_(user_ids),  # 선택된 사용자가 소유한 일정 (개인일정 여부 상관없이)
+            # 선택된 사용자가 공동작업자로 포함된 일정들
+            Schedule.id.in_(collaborator_schedule_ids)
+        ]
+        
+        # 현재 사용자가 선택된 사용자 목록에 포함되어 있는 경우에만 현재 사용자의 일정도 포함
+        if current_user_in_selection:
+            print(f"🔍 [DEBUG] 현재 사용자의 일정도 포함하여 조회")
+            filter_conditions.append(Schedule.owner_id == current_user.id)
+        else:
+            print(f"🔍 [DEBUG] 현재 사용자의 일정은 제외하고 조회")
+        
+        query = query.filter(or_(*filter_conditions))
+        print(f"🔍 [DEBUG] 일반 사용자 필터링 조건 적용 완료")
+        print(f"🔍 [DEBUG] 최종 필터링 조건: owner_id IN {user_ids} OR schedule_id IN {collaborator_schedule_ids}")
+    
+    elif not show_all_users:
         # 자신의 일정만 조회
+        print(f"🔍 [DEBUG] 자신의 일정만 조회 모드")
         query = query.filter(Schedule.owner_id == current_user.id)
     else:
-        # 공동작업자가 선택된 경우 특별 처리
-        if user_ids and len(user_ids) > 0:
-            # 선택된 사용자들이 공동작업자인지 확인
-            from app.core.permissions import check_if_users_are_collaborators
-            from app.core.permissions import get_accessible_users_for_collaborators
-            
-            selected_users_are_collaborators = check_if_users_are_collaborators(db, current_user.id, user_ids)
-            
-            if selected_users_are_collaborators:
-                # 공동작업자가 선택된 경우, 해당 공동일정에 포함된 사람들의 개인일정만 표시
-                accessible_user_ids = get_accessible_users_for_collaborators(db, current_user.id, user_ids)
-                logger.info(f"Collaborators selected. Accessible users: {accessible_user_ids}")
-                
-                query = query.filter(
-                    or_(
-                        Schedule.owner_id == current_user.id,  # 자신의 모든 일정
-                        and_(
-                            Schedule.owner_id.in_(accessible_user_ids),  # 접근 가능한 사용자의 일정
-                            Schedule.individual == True  # 개인일정만
-                        ),
-                        and_(
-                            Schedule.owner_id != current_user.id,  # 다른 사용자의 일정 중
-                            Schedule.individual == False  # 개인일정이 아닌 것만
-                        )
-                    )
-                )
-            else:
-                # 일반 사용자 필터링
-                query = query.filter(
-                    or_(
-                        Schedule.owner_id == current_user.id,  # 자신의 모든 일정
-                        and_(
-                            Schedule.owner_id.in_(user_ids),  # 선택된 사용자의 일정
-                            Schedule.individual == False  # 개인일정이 아닌 것만
-                        )
-                    )
-                )
-        else:
-            # 모든 사용자 일정을 보되, 다른 사용자의 개인일정은 제외
-            query = query.filter(
-                or_(
-                    Schedule.owner_id == current_user.id,  # 자신의 모든 일정
-                    and_(
-                        Schedule.owner_id != current_user.id,  # 다른 사용자의 일정 중
-                        Schedule.individual == False  # 개인일정이 아닌 것만
-                    )
+        # 모든 사용자 일정을 보되, 다른 사용자의 개인일정은 제외
+        print(f"🔍 [DEBUG] 모든 사용자 일정 조회 모드 (개인일정 제외)")
+        query = query.filter(
+            or_(
+                Schedule.owner_id == current_user.id,  # 자신의 모든 일정
+                and_(
+                    Schedule.owner_id != current_user.id,  # 다른 사용자의 일정 중
+                    Schedule.individual == False  # 개인일정이 아닌 것만
                 )
             )
+        )
 
     # 완료 상태 필터링
     if completed_only:
@@ -390,6 +395,52 @@ def read_schedules(
     )
 
     schedules = query.offset(skip).limit(limit).all()
+    
+    print(f"🔍 [DEBUG] 최종 조회된 일정 수: {len(schedules)}")
+    print(f"🔍 [DEBUG] 조회된 일정들 상세:")
+    
+    # 모든 일정을 상세하게 출력
+    for i, schedule in enumerate(schedules):
+        owner_name = schedule.owner.username if schedule.owner else "Unknown"
+        print(f"   {i+1}. ID: {schedule.id}, 제목: '{schedule.title}', 소유자: {owner_name} (ID: {schedule.owner_id})")
+        if hasattr(schedule, 'shares') and schedule.shares:
+            collaborator_names = []
+            for share in schedule.shares:
+                if share.shared_with:
+                    collaborator_names.append(f"{share.shared_with.username}(ID:{share.shared_with.id})")
+                else:
+                    collaborator_names.append(f"Unknown(ID:{share.shared_with_id})")
+            print(f"      공동작업자: {collaborator_names}")
+        else:
+            print(f"      공동작업자: 없음")
+    
+    # 필터링 조건 검증을 위한 추가 로그
+    if user_ids and len(user_ids) > 0:
+        print(f"🔍 [DEBUG] === 필터링 조건 검증 ===")
+        print(f"🔍 [DEBUG] 선택된 사용자 ID들: {user_ids}")
+        
+        # 선택된 사용자들의 이름 조회
+        selected_users = db.query(User).filter(User.id.in_(user_ids)).all()
+        selected_user_names = [f"{user.username}(ID:{user.id})" for user in selected_users]
+        print(f"🔍 [DEBUG] 선택된 사용자들: {selected_user_names}")
+        
+        # 각 일정이 왜 포함되었는지 분석
+        for schedule in schedules:
+            reason = []
+            if schedule.owner_id in user_ids:
+                reason.append(f"소유자({schedule.owner.username})가 선택됨")
+            
+            if hasattr(schedule, 'shares') and schedule.shares:
+                for share in schedule.shares:
+                    if share.shared_with_id in user_ids:
+                        reason.append(f"공동작업자({share.shared_with.username})가 선택됨")
+            
+            if reason:
+                print(f"🔍 [DEBUG] 일정 '{schedule.title}' 포함 이유: {', '.join(reason)}")
+            else:
+                print(f"🔍 [DEBUG] ⚠️ 일정 '{schedule.title}'이 포함된 이유를 찾을 수 없음!")
+        
+        print(f"🔍 [DEBUG] === 필터링 조건 검증 완료 ===")
     
     logger.info(f"Returning {len(schedules)} schedules for user {current_user.id}")
     return schedules
