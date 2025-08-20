@@ -2199,15 +2199,50 @@ details[open] .toggle-icon {
     overflow-y: auto;
 }
 
+
+
+.memo-line:last-child {
+    border-bottom: none;
+}
+
 .memo-line {
-    padding: 5px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
     border-bottom: 1px solid #eee;
     white-space: pre-wrap;
     word-break: break-all;
 }
 
-.memo-line:last-child {
-    border-bottom: none;
+.memo-text {
+    flex: 1;
+    margin-right: 10px;
+}
+
+.memo-delete-btn {
+    background: #ff4757;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.memo-delete-btn:hover {
+    background: #ff3742;
+    transform: scale(1.1);
+}
+
+.memo-delete-btn:active {
+    transform: scale(0.95);
 }
 
 .toast-message {

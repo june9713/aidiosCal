@@ -1272,7 +1272,12 @@ function handleScheduleClick(schedule) {
                     <div class="memo-section">
                         <div class="memo-header">메모</div>
                         <div class="memo-container">
-                            ${schedule.memo ? schedule.memo.split('\n').map(line => `<div class="memo-line">${line}</div>`).join('') : '<div class="memo-line">없음</div>'}
+                            ${schedule.memo ? schedule.memo.split('\n').map((line, index) => `
+                                <div class="memo-line">
+                                    <span class="memo-text">${line}</span>
+                                    <button class="memo-delete-btn" onclick="deleteMemoLine(${schedule.id}, ${index})" title="메모 라인 삭제">×</button>
+                                </div>
+                            `).join('') : '<div class="memo-line">없음</div>'}
                         </div>
                     </div>
                     <div id="modal-attachments-list"></div>
@@ -2716,6 +2721,90 @@ async function updateMemo(scheduleId) {
     } catch (error) {
         log('ERROR', 'Update memo error', error);
         alert('메모 추가 중 오류가 발생했습니다.');
+    }
+}
+
+// 메모 라인 삭제 함수
+async function deleteMemoLine(scheduleId, lineIndex) {
+    if (!confirm('이 메모 라인을 삭제하시겠습니까?')) {
+        return;
+    }
+
+    const token = localStorage.getItem('token');
+    if (!token) {
+        alert('로그인이 필요합니다.');
+        return;
+    }
+
+    try {
+        // 기존 스케줄 정보 가져오기
+        const schedule = window.schedules.find(s => s.id === scheduleId);
+        if (!schedule || !schedule.memo) {
+            alert('메모를 찾을 수 없습니다.');
+            return;
+        }
+
+        // 메모 라인들을 배열로 분리
+        const memoLines = schedule.memo.split('\n');
+        
+        // 해당 라인 삭제
+        if (lineIndex >= 0 && lineIndex < memoLines.length) {
+            memoLines.splice(lineIndex, 1);
+            
+            // 새로운 메모 내용 생성
+            const newMemo = memoLines.join('\n');
+            
+            // 서버에 업데이트 요청
+            const response = await fetch(`/schedules/${scheduleId}/memo`, {
+                method: 'PUT',
+                headers: { 
+                    'Authorization': `Bearer ${token}`, 
+                    'Content-Type': 'application/json' 
+                },
+                body: JSON.stringify({ memo: newMemo }),
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                // 로컬 스케줄 데이터 업데이트
+                const scheduleIndex = window.schedules.findIndex(s => s.id === scheduleId);
+                if (scheduleIndex !== -1) {
+                    window.schedules[scheduleIndex].memo = data.memo;
+                }
+                
+                // 현재 열려있는 상세 모달이 있다면 해당 모달도 업데이트
+                const detailModal = document.querySelector('.schedule-modal[data-schedule-id="'+scheduleId+'"]');
+                if (detailModal) {
+                    const memoContainer = detailModal.querySelector('.memo-container');
+                    if (memoContainer) {
+                        if (data.memo) {
+                            memoContainer.innerHTML = data.memo.split('\n').map((line, index) => `
+                                <div class="memo-line">
+                                    <span class="memo-text">${line}</span>
+                                    <button class="memo-delete-btn" onclick="deleteMemoLine(${scheduleId}, ${index})" title="메모 라인 삭제">×</button>
+                                </div>
+                            `).join('');
+                        } else {
+                            memoContainer.innerHTML = '<div class="memo-line">없음</div>';
+                        }
+                    }
+                }
+                
+                // 스케줄 목록 다시 렌더링
+                renderSchedules();
+                
+                alert('메모 라인이 삭제되었습니다.');
+            } else {
+                log('ERROR', 'Failed to delete memo line', data);
+                alert(data.detail || '메모 라인 삭제에 실패했습니다.');
+            }
+        } else {
+            alert('유효하지 않은 메모 라인입니다.');
+        }
+    } catch (error) {
+        log('ERROR', 'Delete memo line error', error);
+        alert('메모 라인 삭제 중 오류가 발생했습니다.');
     }
 }
 
