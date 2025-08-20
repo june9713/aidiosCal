@@ -835,12 +835,13 @@ function createMemoRow(schedule, memoLine, memoIndex) {
     tr.style.color = '#6c757d';
     tr.style.borderLeft = '3px solid #007bff';
     
+    // 작성자, 프로젝트, 제목을 모두 merge하여 작성자 칸부터 표시
+    const memoContent = `📝 ${memoLine}`;
+    
     tr.innerHTML = `
         <td data-label="날짜"></td>
-        <td data-label="작성자"></td>
-        <td data-label="프로젝트"></td>
-        <td data-label="제목" style="padding-left: 20px;">
-            📝 ${memoLine}
+        <td data-label="작성자" colspan="3" style="padding-left: 20px;">
+            ${memoContent}
         </td>
     `;
     
@@ -944,14 +945,14 @@ function createMemoRow(schedule, memoLine, memoIndex) {
     tr.dataset.scheduleId = schedule.id;
     tr.dataset.memoIndex = memoIndex;
     
-    // 메모 내용을 제목 열에 표시 (들여쓰기로 구분)
+    // 작성자, 프로젝트, 제목을 모두 merge하여 작성자 칸부터 표시
     const memoContent = `  --->📝 ${memoLine}`;
     
     tr.innerHTML = `
         <td data-label="날짜"></td>
-        <td data-label="작성자"></td>
-        <td data-label="프로젝트"></td>
-        <td data-label="제목">${memoContent}</td>
+        <td data-label="작성자" colspan="3" style="padding-left: 20px;">
+            ${memoContent}
+        </td>
     `;
     
     // 메모 행 클릭 시 부모 스케줄 상세보기
