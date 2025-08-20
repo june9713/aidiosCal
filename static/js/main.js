@@ -1017,6 +1017,23 @@ function createMemoRow(schedule, memoLine, memoIndex) {
         isDragging = false;
     });
     
+    // 컨텍스트 메뉴 (우클릭 또는 길게 누르기)
+    tr.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        showContextMenu(e, schedule);
+    });
+    
+    // 터치 이벤트 리스너 추가
+    let touchTimer;
+    tr.addEventListener('touchstart', (e) => {
+        touchTimer = setTimeout(() => {
+            e.preventDefault(); // 기본 동작 방지 (예: 텍스트 선택)
+            showContextMenu(e.touches[0], schedule);
+        }, 700); // 700ms 길게 터치
+    });
+    tr.addEventListener('touchend', () => clearTimeout(touchTimer));
+    tr.addEventListener('touchmove', () => clearTimeout(touchTimer));
+    
     return tr;
 }
 
@@ -1054,17 +1071,50 @@ function showContextMenu(event, schedule) {
     document.body.appendChild(menu);
     const menuWidth = menu.offsetWidth;
     const menuHeight = menu.offsetHeight;
-    let x = event.clientX || event.pageX;
-    let y = event.clientY || event.pageY;
+    
+    // 이벤트 타입에 따라 좌표 설정
+    let x, y;
+    if (event.type === 'contextmenu') {
+        // 마우스 우클릭 이벤트
+        x = event.clientX;
+        y = event.clientY;
+    } else if (event.touches && event.touches[0]) {
+        // 터치 이벤트
+        x = event.touches[0].clientX;
+        y = event.touches[0].clientY;
+    } else {
+        // 기타 이벤트 (fallback)
+        x = event.clientX || event.pageX;
+        y = event.clientY || event.pageY;
+    }
 
+    // 화면 경계 체크 및 조정
     if (x + menuWidth > window.innerWidth) {
         x = window.innerWidth - menuWidth - 5;
     }
     if (y + menuHeight > window.innerHeight) {
         y = window.innerHeight - menuHeight - 5;
     }
+    
+    // 최소값 보장
+    x = Math.max(5, x);
+    y = Math.max(5, y);
+    
     menu.style.left = `${x}px`;
     menu.style.top = `${y}px`;
+    
+    // PC와 모바일 모두에서 메뉴 외부 클릭/터치 시 메뉴 닫기
+    const hideMenuOnOutsideInteraction = (e) => {
+        if (!menu.contains(e.target)) {
+            hideContextMenu();
+        }
+    };
+    
+    // PC용 클릭 이벤트
+    document.addEventListener('click', hideMenuOnOutsideInteraction, { once: true });
+    
+    // 모바일용 터치 이벤트
+    document.addEventListener('touchstart', hideMenuOnOutsideInteraction, { once: true });
     
     // 모바일 터치 이벤트 처리 개선
     menu.addEventListener('touchstart', (e) => {
@@ -1078,16 +1128,15 @@ function showContextMenu(event, schedule) {
             e.stopPropagation();
         }, { passive: false });
     });
-    
-    // 메뉴 외부 터치 시 메뉴 닫기
-    setTimeout(() => {
-        document.addEventListener('touchstart', hideContextMenu, { once: true });
-    }, 0);
 }
 
 function hideContextMenu() {
     const menu = document.querySelector('.context-menu');
-    if (menu) menu.remove();
+    if (menu) {
+        menu.remove();
+    }
+    
+    // 모든 이벤트 리스너 정리
     document.removeEventListener('click', hideContextMenu);
     document.removeEventListener('touchstart', hideContextMenu);
 }
