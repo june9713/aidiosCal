@@ -3588,7 +3588,6 @@ function showScheduleInterface() {
     loadAlarms();
     setupInfiniteScroll();
     updateToggleCompletedButtonText();
-    addDeleteAllButton(); // 모든 일정 삭제 버튼 추가
     main_loadSchedules(); // 초기 일정 로드 추가
 }
 
