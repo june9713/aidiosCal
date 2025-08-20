@@ -60,6 +60,12 @@ class ScheduleShare(Base):
     shared_with_id = Column(Integer, ForeignKey("users.id"))
     memo = Column(Text)
     created_at = Column(DateTime, default=datetime.now)
+    can_edit = Column(Boolean, default=True)
+    can_delete = Column(Boolean, default=True)
+    can_complete = Column(Boolean, default=True)
+    can_share = Column(Boolean, default=True)
+    role = Column(String, default="collaborator")
+    added_at = Column(DateTime, default=datetime.now)
     
     schedule = relationship("Schedule", back_populates="shares")
     shared_with = relationship("User", back_populates="shared_schedules")
