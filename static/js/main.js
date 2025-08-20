@@ -1144,21 +1144,20 @@ function handleScheduleClick(schedule) {
                         
                     </div>
                     
-                    ${window.currentUser && schedule.owner && window.currentUser.id === schedule.owner.id ? `
+                    ${window.currentUser ? `
                     <div class="schedule-actions">
-                        <button onclick="editSchedule(${schedule.id})">수정</button>
-                        <button onclick="shareSchedule(${schedule.id})">공유</button>
-                        <button onclick="toggleComplete(${schedule.id}, ${!schedule.is_completed})">
-                            ${schedule.is_completed ? '미완료로' : '완료로'}
-                        </button>
-                        <button onclick="deleteSchedule(${schedule.id})" class="clear-all-btn">삭제</button>
-                        <button onclick="main_createChildSchedule(${schedule.id})">후속작업 생성</button>
-                        ${schedule.parent ? `<button onclick="viewParentSchedule(${schedule.parent.id})">부모작업 보기</button>` : ''}
-                        ${schedule.children && schedule.children.length > 0 ? `<button onclick="viewChildrenSchedules(${schedule.id})">후속작업 보기</button>` : ''}
-                    </div>
-                    ` : window.currentUser && schedule.owner && window.currentUser.id !== schedule.owner.id && !schedule.is_completed ? `
-                    <div class="schedule-actions">
-                        <button onclick="requestCompletion(${schedule.id})">완료 요청</button>
+                        ${(window.currentUser.role === 'admin' || (schedule.owner && window.currentUser.id === schedule.owner.id)) ? `
+                            <button onclick="editSchedule(${schedule.id})">수정</button>
+                            <button onclick="shareSchedule(${schedule.id})">공유</button>
+                            <button onclick="toggleComplete(${schedule.id}, ${!schedule.is_completed})">
+                                ${schedule.is_completed ? '미완료로' : '완료로'}
+                            </button>
+                            <button onclick="deleteSchedule(${schedule.id})" class="clear-all-btn">삭제</button>
+                            <button onclick="main_createChildSchedule(${schedule.id})">후속작업 생성</button>
+                        ` : ''}
+                        ${(window.currentUser.role === 'admin' || (schedule.owner && window.currentUser.id !== schedule.owner.id)) ? `
+                            <button onclick="requestCompletion(${schedule.id})">완료 요청</button>
+                        ` : ''}
                         ${schedule.parent ? `<button onclick="viewParentSchedule(${schedule.parent.id})">부모작업 보기</button>` : ''}
                         ${schedule.children && schedule.children.length > 0 ? `<button onclick="viewChildrenSchedules(${schedule.id})">후속작업 보기</button>` : ''}
                     </div>

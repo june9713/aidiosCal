@@ -19,6 +19,8 @@ class User(Base):
     name = Column(String)
     hashed_password = Column(String)
     is_active = Column(Boolean, default=True)
+    last_page = Column(Text, nullable=True)
+    role = Column(String, default="user")
     schedules = relationship("Schedule", back_populates="owner", foreign_keys="Schedule.owner_id")
     memo_schedules = relationship("Schedule", back_populates="memo_author", foreign_keys="Schedule.memo_author_id")
     shared_schedules = relationship("ScheduleShare", back_populates="shared_with")

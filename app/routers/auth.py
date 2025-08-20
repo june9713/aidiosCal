@@ -54,7 +54,8 @@ async def register_user(
             is_active=True,
             username=user.username,
             name=user.name,
-            hashed_password=user.password
+            hashed_password=user.password,
+            role=user.role
         )
         db.add(db_user)
         db.commit()
@@ -65,7 +66,8 @@ async def register_user(
             id=int(db_user.id),
             username=db_user.username,
             name=db_user.name,
-            is_active=db_user.is_active
+            is_active=db_user.is_active,
+            role=db_user.role
         )
         
     except ValidationError as e:
@@ -240,7 +242,8 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
         id=current_user.id,
         username=current_user.username,
         name=current_user.name,
-        is_active=current_user.is_active
+        is_active=current_user.is_active,
+        role=current_user.role
     )
 
 @router.get("/check-session")
@@ -268,7 +271,8 @@ async def check_session(request: Request, db: Session = Depends(get_db)):
                     "id": user.id,
                     "username": user.username,
                     "name": user.name,
-                    "is_active": user.is_active
+                    "is_active": user.is_active,
+                    "role": user.role
                 },
                 "token": session_token
             }

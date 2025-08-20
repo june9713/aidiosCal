@@ -24,6 +24,17 @@ def can_edit_schedule(db: Session, user_id: int, schedule_id: int) -> bool:
         bool: 수정 권한 여부
     """
     try:
+        # 사용자의 역할 확인
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            logger.warning(f"User {user_id} not found")
+            return False
+        
+        # admin 사용자는 모든 일정에 대한 권한을 가짐
+        if user.role == "admin":
+            logger.info(f"User {user_id} is admin, has edit permission for all schedules")
+            return True
+        
         # 일정 소유자인지 확인
         schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
         if not schedule:
@@ -64,6 +75,17 @@ def can_delete_schedule(db: Session, user_id: int, schedule_id: int) -> bool:
         bool: 삭제 권한 여부
     """
     try:
+        # 사용자의 역할 확인
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            logger.warning(f"User {user_id} not found")
+            return False
+        
+        # admin 사용자는 모든 일정에 대한 권한을 가짐
+        if user.role == "admin":
+            logger.info(f"User {user_id} is admin, has delete permission for all schedules")
+            return True
+        
         # 일정 소유자인지 확인
         schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
         if not schedule:
@@ -104,6 +126,17 @@ def can_complete_schedule(db: Session, user_id: int, schedule_id: int) -> bool:
         bool: 완료 처리 권한 여부
     """
     try:
+        # 사용자의 역할 확인
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            logger.warning(f"User {user_id} not found")
+            return False
+        
+        # admin 사용자는 모든 일정에 대한 권한을 가짐
+        if user.role == "admin":
+            logger.info(f"User {user_id} is admin, has complete permission for all schedules")
+            return True
+        
         # 일정 소유자인지 확인
         schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
         if not schedule:
@@ -144,6 +177,17 @@ def can_share_schedule(db: Session, user_id: int, schedule_id: int) -> bool:
         bool: 공유 권한 여부
     """
     try:
+        # 사용자의 역할 확인
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            logger.warning(f"User {user_id} not found")
+            return False
+        
+        # admin 사용자는 모든 일정에 대한 권한을 가짐
+        if user.role == "admin":
+            logger.info(f"User {user_id} is admin, has share permission for all schedules")
+            return True
+        
         # 일정 소유자인지 확인
         schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
         if not schedule:
@@ -407,6 +451,22 @@ def get_user_schedule_permissions(db: Session, user_id: int, schedule_id: int) -
         Dict: 권한 정보
     """
     try:
+        # 사용자의 역할 확인
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            return {}
+        
+        # admin 사용자는 모든 일정에 대한 모든 권한을 가짐
+        if user.role == "admin":
+            return {
+                "is_owner": False,
+                "can_edit": True,
+                "can_delete": True,
+                "can_complete": True,
+                "can_share": True,
+                "role": "admin"
+            }
+        
         # 일정 소유자인지 확인
         schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
         if not schedule:
