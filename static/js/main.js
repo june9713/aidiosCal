@@ -3652,14 +3652,13 @@ async function loadUsers() {
 function searchUsers(searchTerm) {
     console.log(`🔍 [USERS_SEARCH] searchUsers 호출 - searchTerm: "${searchTerm}"`);
     
-    // admin, viewer, 자기 자신은 항상 제외
+    // admin, viewer만 제외 (자기 자신은 포함)
     const currentUserId = getCurrentUserId();
     console.log(`🔍 [USERS_SEARCH] 현재 사용자 ID: ${currentUserId}`);
     
     const filteredUsers = allUsers.filter(user => 
         user.username !== 'admin' && 
-        user.username !== 'viewer' && 
-        user.id !== currentUserId
+        user.username !== 'viewer'
     );
     
     console.log(`🔍 [USERS_SEARCH] 필터링 전 사용자 수: ${allUsers.length}`);

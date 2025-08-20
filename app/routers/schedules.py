@@ -175,10 +175,8 @@ def create_schedule(
             for i, collaborator_id in enumerate(collaborators):
                 #print(f"👥 [STEP_6] 공동작업자 {i+1} 처리 중: ID {collaborator_id}")
                 
-                if collaborator_id == current_user.id:
-                    #print(f"⚠️ [STEP_6] 자기 자신은 공동작업자로 추가하지 않음: {collaborator_id}")
-                    skipped_collaborators.append(collaborator_id)
-                    continue
+                # 자기 자신도 공동작업자로 추가 가능하도록 제한 제거
+                #print(f"👥 [STEP_6] 공동작업자 처리 중: ID {collaborator_id}")
                 
                 # 사용자 존재 여부 확인
                 #print(f"👥 [STEP_6] 사용자 ID {collaborator_id} 존재 여부 확인...")
@@ -573,12 +571,12 @@ def update_schedule(
         # 새로운 공동 작업자 정보 저장
         if collaborators:
             for collaborator_id in collaborators:
-                if collaborator_id != current_user.id:  # 자신은 공동 작업자로 추가하지 않음
-                    schedule_share = ScheduleShare(
-                        schedule_id=schedule_id,
-                        shared_with_id=collaborator_id
-                    )
-                    db.add(schedule_share)
+                # 자기 자신도 공동작업자로 추가 가능하도록 제한 제거
+                schedule_share = ScheduleShare(
+                    schedule_id=schedule_id,
+                    shared_with_id=collaborator_id
+                )
+                db.add(schedule_share)
             
             db.commit()
             logger.info(f"Updated {len(collaborators)} collaborators for schedule {schedule_id}")
