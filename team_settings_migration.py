@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 
 def get_db_path():
-    """데이터베이스 파일 경로 반환"""
+    """데이터베이스 파일 경로 반환 함수"""
     current_dir = Path(__file__).parent
     db_path = current_dir / "sql_app.db"
     return str(db_path)
