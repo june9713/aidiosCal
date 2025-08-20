@@ -274,10 +274,33 @@ def update_schedule(
         if db_schedule is None:
             raise HTTPException(status_code=404, detail="Schedule not found")
         
-        for key, value in schedule.dict().items():
+        # 공동 작업자 정보 제거 (Schedule 모델에 직접 저장되지 않음)
+        schedule_data = schedule.dict()
+        collaborators = schedule_data.pop('collaborators', [])
+        
+        # 일정 정보 업데이트
+        for key, value in schedule_data.items():
             setattr(db_schedule, key, value)
         
         db.commit()
+        db.refresh(db_schedule)
+        
+        # 기존 공동 작업자 정보 삭제
+        db.query(ScheduleShare).filter(ScheduleShare.schedule_id == schedule_id).delete()
+        
+        # 새로운 공동 작업자 정보 저장
+        if collaborators:
+            for collaborator_id in collaborators:
+                if collaborator_id != current_user.id:  # 자신은 공동 작업자로 추가하지 않음
+                    schedule_share = ScheduleShare(
+                        schedule_id=schedule_id,
+                        shared_with_id=collaborator_id
+                    )
+                    db.add(schedule_share)
+            
+            db.commit()
+            logger.info(f"Updated {len(collaborators)} collaborators for schedule {schedule_id}")
+        
         db.refresh(db_schedule)
         return db_schedule
     except HTTPException:
@@ -871,9 +894,64 @@ async def export_schedules_to_excel(
                 headers={'Content-Disposition': f'attachment; filename="{zip_filename}"'}
             )
         
+            except Exception as e:
+            logger.error(f"[EXCEL EXPORT ERROR] {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"엑셀 파일 생성 중 오류가 발생했습니다: {str(e)}"
+            )
+
+@router.get("/{schedule_id}/collaborators")
+def get_schedule_collaborators(
+    schedule_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """일정의 공동 작업자 목록을 반환합니다."""
+    try:
+        # 일정이 존재하는지 확인
+        schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
+        if not schedule:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="일정을 찾을 수 없습니다"
+            )
+        
+        # 일정 소유자이거나 공유된 사용자인지 확인
+        if schedule.owner_id != current_user.id:
+            shared_schedule = db.query(ScheduleShare).filter(
+                ScheduleShare.schedule_id == schedule_id,
+                ScheduleShare.shared_with_id == current_user.id
+            ).first()
+            if not shared_schedule:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="이 일정에 접근할 권한이 없습니다"
+                )
+        
+        # 공동 작업자 목록 조회
+        collaborators = db.query(ScheduleShare).filter(
+            ScheduleShare.schedule_id == schedule_id
+        ).all()
+        
+        # 사용자 정보와 함께 반환
+        result = []
+        for collaborator in collaborators:
+            user = db.query(User).filter(User.id == collaborator.shared_with_id).first()
+            if user:
+                result.append({
+                    "user_id": user.id,
+                    "username": user.username,
+                    "name": user.name
+                })
+        
+        return result
+        
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"[EXCEL EXPORT ERROR] {str(e)}")
+        logger.error(f"Error getting schedule collaborators: {str(e)}")
         raise HTTPException(
-            status_code=500,
-            detail=f"엑셀 파일 생성 중 오류가 발생했습니다: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"공동 작업자 정보를 가져오는 중 오류가 발생했습니다: {str(e)}"
         )

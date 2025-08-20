@@ -1824,6 +1824,17 @@ async function editSchedule(scheduleId) {
             </div>
 
             <div class="form-group">
+                <label for="edit-schedule-collaborators">공동 작업자</label>
+                <div style="position: relative;">
+                    <input type="text" id="edit-schedule-collaborators-search" placeholder="사용자 검색..." style="width: 100%; margin-bottom: 5px;">
+                    <select id="edit-schedule-collaborators" multiple style="width: 100%; min-height: 100px;">
+                        <option value="">사용자를 검색하여 선택하세요</option>
+                    </select>
+                    <div id="edit-selected-collaborators" style="margin-top: 5px;"></div>
+                </div>
+            </div>
+
+            <div class="form-group">
                 <label for="edit-content">내용</label>
                 <textarea id="edit-content" placeholder="내용" rows="3" style="height: 60px;">${schedule.content || ''}</textarea>
             </div>
@@ -1881,6 +1892,12 @@ async function editSchedule(scheduleId) {
 
     // 수정 모드용 프로젝트 목록 로드
     await loadProjectList('edit-project', 'edit-project-list');
+    
+    // 공동 작업자 기능 초기화 (수정 모드)
+    initializeCollaborators('edit');
+    
+    // 기존 공동 작업자 정보 로드 및 설정
+    loadExistingCollaborators(schedule.id, 'edit');
 }
 
 // cancelEdit from backup
@@ -1910,6 +1927,10 @@ async function updateSchedule(scheduleId) {
     const projectName = document.getElementById('edit-project').value.trim() || '일정';
     const dueTime = document.getElementById('edit-due-time').value;
     
+    // 공동 작업자 정보 수집
+    const collaboratorsSelect = document.getElementById('edit-schedule-collaborators');
+    const selectedCollaborators = Array.from(collaboratorsSelect.selectedOptions).map(option => parseInt(option.value));
+    
     const updatedData = {
         project_name: projectName,
         title: document.getElementById('edit-title').value,
@@ -1919,6 +1940,7 @@ async function updateSchedule(scheduleId) {
         due_time: formatDateTimeForAPI(dueTime),
         alarm_time: formatDateTimeForAPI(document.getElementById('edit-alarm-time').value),
         individual: document.getElementById('edit-individual').checked,
+        collaborators: selectedCollaborators,
     };
 
     // 새로운 프로젝트명인 경우 projects.json에 추가
@@ -3219,9 +3241,10 @@ function searchUsers(searchTerm) {
 }
 
 // 공동 작업자 검색 입력 이벤트 처리
-function setupCollaboratorsSearch() {
-    const searchInput = document.getElementById('schedule-collaborators-search');
-    const collaboratorsSelect = document.getElementById('schedule-collaborators');
+function setupCollaboratorsSearch(formType = 'add') {
+    const prefix = formType === 'edit' ? 'edit-' : '';
+    const searchInput = document.getElementById(`${prefix}schedule-collaborators-search`);
+    const collaboratorsSelect = document.getElementById(`${prefix}schedule-collaborators`);
     
     if (!searchInput || !collaboratorsSelect) return;
     
@@ -3234,14 +3257,15 @@ function setupCollaboratorsSearch() {
         }
         
         collaboratorsSearchTimeout = setTimeout(() => {
-            updateCollaboratorsDropdown(searchTerm);
+            updateCollaboratorsDropdown(searchTerm, formType);
         }, 300);
     });
 }
 
 // 공동 작업자 드롭다운 업데이트
-function updateCollaboratorsDropdown(searchTerm) {
-    const collaboratorsSelect = document.getElementById('schedule-collaborators');
+function updateCollaboratorsDropdown(searchTerm, formType = 'add') {
+    const prefix = formType === 'edit' ? 'edit-' : '';
+    const collaboratorsSelect = document.getElementById(`${prefix}schedule-collaborators`);
     if (!collaboratorsSelect) return;
     
     // 기존 옵션 제거 (첫 번째 안내 메시지 제외)
@@ -3277,9 +3301,10 @@ function updateCollaboratorsDropdown(searchTerm) {
 }
 
 // 선택된 공동 작업자 표시
-function updateSelectedCollaborators() {
-    const collaboratorsSelect = document.getElementById('schedule-collaborators');
-    const selectedContainer = document.getElementById('selected-collaborators');
+function updateSelectedCollaborators(formType = 'add') {
+    const prefix = formType === 'edit' ? 'edit-' : '';
+    const collaboratorsSelect = document.getElementById(`${prefix}schedule-collaborators`);
+    const selectedContainer = document.getElementById(`${prefix}selected-collaborators`);
     
     if (!collaboratorsSelect || !selectedContainer) return;
     
@@ -3297,7 +3322,7 @@ function updateSelectedCollaborators() {
     const selectedHtml = selectedUsers.map(user => 
         `<span class="selected-collaborator" style="display: inline-block; background: #e3f2fd; padding: 2px 8px; margin: 2px; border-radius: 12px; font-size: 12px;">
             ${user.username} (${user.name})
-            <button type="button" onclick="removeCollaborator(${user.id})" style="background: none; border: none; color: #666; cursor: pointer; margin-left: 5px;">×</button>
+            <button type="button" onclick="removeCollaborator(${user.id}, '${formType}')" style="background: none; border: none; color: #666; cursor: pointer; margin-left: 5px;">×</button>
         </span>`
     ).join('');
     
@@ -3305,31 +3330,76 @@ function updateSelectedCollaborators() {
 }
 
 // 공동 작업자 제거
-function removeCollaborator(userId) {
-    const collaboratorsSelect = document.getElementById('schedule-collaborators');
+function removeCollaborator(userId, formType = 'add') {
+    const prefix = formType === 'edit' ? 'edit-' : '';
+    const collaboratorsSelect = document.getElementById(`${prefix}schedule-collaborators`);
     if (!collaboratorsSelect) return;
     
     const option = collaboratorsSelect.querySelector(`option[value="${userId}"]`);
     if (option) {
         option.selected = false;
-        updateSelectedCollaborators();
+        updateSelectedCollaborators(formType);
     }
 }
 
 // 공동 작업자 선택 이벤트 설정
-function setupCollaboratorsSelection() {
-    const collaboratorsSelect = document.getElementById('schedule-collaborators');
+function setupCollaboratorsSelection(formType = 'add') {
+    const prefix = formType === 'edit' ? 'edit-' : '';
+    const collaboratorsSelect = document.getElementById(`${prefix}schedule-collaborators`);
     if (!collaboratorsSelect) return;
     
-    collaboratorsSelect.addEventListener('change', updateSelectedCollaborators);
+    collaboratorsSelect.addEventListener('change', () => updateSelectedCollaborators(formType));
+}
+
+// 기존 공동 작업자 정보 로드
+async function loadExistingCollaborators(scheduleId, formType) {
+    try {
+        const response = await apiRequest(`/schedules/${scheduleId}/collaborators`);
+        if (response.ok) {
+            const collaborators = await response.json();
+            setSelectedCollaborators(collaborators, formType);
+        } else {
+            // API가 아직 구현되지 않았거나 오류가 발생한 경우 무시
+            log('INFO', 'Collaborators API not available yet, skipping');
+        }
+    } catch (error) {
+        // API가 아직 구현되지 않은 경우 무시
+        log('INFO', 'Collaborators API not available yet, skipping');
+    }
+}
+
+// 선택된 공동 작업자 설정
+function setSelectedCollaborators(collaborators, formType) {
+    const prefix = formType === 'edit' ? 'edit-' : '';
+    const collaboratorsSelect = document.getElementById(`${prefix}schedule-collaborators`);
+    
+    if (!collaboratorsSelect) return;
+    
+    // 모든 옵션 선택 해제
+    Array.from(collaboratorsSelect.options).forEach(option => {
+        option.selected = false;
+    });
+    
+    // 기존 공동 작업자 선택
+    collaborators.forEach(collaborator => {
+        const option = collaboratorsSelect.querySelector(`option[value="${collaborator.user_id}"]`);
+        if (option) {
+            option.selected = true;
+        }
+    });
+    
+    // 선택된 공동 작업자 표시 업데이트
+    updateSelectedCollaborators(formType);
 }
 
 // 공동 작업자 기능 초기화
-function initializeCollaborators() {
+function initializeCollaborators(formType = 'add') {
+    const prefix = formType === 'edit' ? 'edit-' : '';
+    
     loadUsers().then(() => {
         // 사용자 로드 완료 후 드롭다운 초기화
-        updateCollaboratorsDropdown('');
-        setupCollaboratorsSearch();
-        setupCollaboratorsSelection();
+        updateCollaboratorsDropdown('', formType);
+        setupCollaboratorsSearch(formType);
+        setupCollaboratorsSelection(formType);
     });
 }
