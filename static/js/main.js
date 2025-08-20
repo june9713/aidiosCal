@@ -1728,7 +1728,6 @@ async function showAddScheduleForm() {
                     <select id="schedule-collaborators" multiple style="width: 100%; min-height: 100px;">
                         <option value="">사용자를 검색하여 선택하세요</option>
                     </select>
-                    <div class="help-text">클릭으로 여러 명을 선택할 수 있습니다. Ctrl/Cmd+클릭으로도 선택 가능합니다.</div>
                     <div id="selected-collaborators" style="margin-top: 5px;"></div>
                 </div>
             </div>
@@ -2211,7 +2210,6 @@ async function editSchedule(scheduleId) {
                     <select id="edit-schedule-collaborators" multiple style="width: 100%; min-height: 100px;">
                         <option value="">사용자를 검색하여 선택하세요</option>
                     </select>
-                    <div class="help-text">클릭으로 여러 명을 선택할 수 있습니다. Ctrl/Cmd+클릭으로도 선택 가능합니다.</div>
                     <div id="edit-selected-collaborators" style="margin-top: 5px;"></div>
                 </div>
             </div>
