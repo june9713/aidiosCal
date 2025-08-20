@@ -36,6 +36,7 @@
  
  /* Auth Forms */
  #auth-container {
+    width: 100%;
     max-width: 100%;
     max-height: 100%;
     margin: 6px;
@@ -43,6 +44,8 @@
     background: white;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-sizing: border-box; /* 패딩과 마진을 포함한 전체 너비 계산 */
+    overflow-x: hidden; /* 가로 스크롤 방지 */
  }
  
  #login-form, #register-form {
@@ -799,14 +802,15 @@ details[open] .toggle-icon {
  /* Schedule Container */
  .schedule-container {
     margin-top: 10px;
-    overflow-x: auto;
+    width: 100%;
+    overflow-x: hidden; /* 가로 스크롤 방지하여 테이블이 컨테이너 너비에 맞게 조정되도록 함 */
  }
  
  .schedule-table {
     width: 100%;
     border-collapse: collapse;
     background-color: var(--bg-color);
-    table-layout: auto; /* 자동 테이블 레이아웃으로 변경 */
+    table-layout: fixed; /* 고정 레이아웃으로 변경하여 퍼센트 너비가 제대로 적용되도록 함 */
  }
  
  .schedule-table th,
@@ -814,13 +818,13 @@ details[open] .toggle-icon {
     padding: 0.75rem;
     text-align: left;
     border-bottom: 1px solid var(--border-color);
-    white-space: nowrap; /* 텍스트 줄바꿈 방지 */
+    white-space: normal; /* 텍스트 줄바꿈 허용 */
  }
  
  .schedule-table th {
     background-color: var(--header-bg);
     font-weight: bold;
-    width: auto; /* 자동 너비 설정 */
+    /* width: auto 제거 - nth-child 선택자로 개별 설정 */
  }
  
 
@@ -3415,66 +3419,76 @@ details[open] .toggle-icon {
     gap: 15px;
 }
 
-/* 특정 컬럼에 대한 최소 너비 설정 */
+/* 특정 컬럼에 대한 반응형 너비 설정 */
  .schedule-table th:nth-child(1) { /* 날짜 컬럼 */
-    min-width: 120px;
-    width: 120px; /* 고정 너비 */
+    min-width: 100px;
+    width: 12%; /* auth-container 너비의 12% */
  }
  
  .schedule-table th:nth-child(2) { /* 작성자 컬럼 */
     min-width: 80px;
-    width: 100px; /* 고정 너비 */
+    width: 10%; /* auth-container 너비의 10% */
  }
  
  .schedule-table th:nth-child(3) { /* 프로젝트 컬럼 */
     min-width: 100px;
-    width: 150px; /* 기본 너비, 화면에 따라 조정 */
-    max-width: 200px; /* 최대 너비 제한 */
+    width: 18%; /* auth-container 너비의 18% */
  }
  
  .schedule-table th:nth-child(4) { /* 제목 컬럼 */
-    width: auto; /* 나머지 공간 모두 사용 */
+    width: 60%; /* auth-container 너비의 60% */
     white-space: normal; /* 제목은 줄바꿈 허용 */
-    min-width: 200px; /* 최소 너비 보장 */
+    min-width: 150px; /* 최소 너비 보장 */
  }
 
 /* 반응형 테이블 레이아웃 */
 .schedule-table {
-    table-layout: fixed; /* 고정 레이아웃으로 변경하여 컬럼 너비 제어 */
+    table-layout: fixed; /* 고정 레이아웃으로 변경하여 퍼센트 너비가 제대로 적용되도록 함 */
     width: 100%;
 }
 
 /* 화면 크기에 따른 반응형 조정 */
 @media (max-width: 1200px) {
+    .schedule-table th:nth-child(1) { /* 날짜 컬럼 */
+        width: 15%;
+        min-width: 90px;
+    }
+    
+    .schedule-table th:nth-child(2) { /* 작성자 컬럼 */
+        width: 12%;
+        min-width: 70px;
+    }
+    
     .schedule-table th:nth-child(3) { /* 프로젝트 컬럼 */
-        width: 120px;
-        max-width: 150px;
+        width: 20%;
+        min-width: 90px;
     }
     
     .schedule-table th:nth-child(4) { /* 제목 컬럼 */
-        min-width: 150px;
+        width: 53%;
+        min-width: 120px;
     }
 }
 
 @media (max-width: 768px) {
     .schedule-table th:nth-child(1) { /* 날짜 컬럼 */
-        width: 100px;
+        width: 18%;
         min-width: 80px;
     }
     
     .schedule-table th:nth-child(2) { /* 작성자 컬럼 */
-        width: 80px;
+        width: 15%;
         min-width: 60px;
     }
     
     .schedule-table th:nth-child(3) { /* 프로젝트 컬럼 */
-        width: 100px;
+        width: 22%;
         min-width: 80px;
-        max-width: 120px;
     }
     
     .schedule-table th:nth-child(4) { /* 제목 컬럼 */
-        min-width: 120px;
+        width: 45%;
+        min-width: 100px;
     }
 }
 
