@@ -917,7 +917,37 @@ function createScheduleRow(schedule, todayString) {
         }
     }
     
-    tr.addEventListener('click', () => handleScheduleClick(schedule)); // 변경된 함수 호출
+    // 드래그와 클릭을 구분하기 위한 변수들
+    let isDragging = false;
+    let startX, startY;
+    
+    tr.addEventListener('mousedown', (e) => {
+        startX = e.clientX;
+        startY = e.clientY;
+        isDragging = false;
+    });
+    
+    tr.addEventListener('mousemove', (e) => {
+        if (startX !== undefined && startY !== undefined) {
+            const deltaX = Math.abs(e.clientX - startX);
+            const deltaY = Math.abs(e.clientY - startY);
+            // 5px 이상 움직이면 드래그로 간주
+            if (deltaX > 5 || deltaY > 5) {
+                isDragging = true;
+            }
+        }
+    });
+    
+    tr.addEventListener('mouseup', (e) => {
+        if (!isDragging) {
+            // 드래그가 아닌 경우에만 클릭 이벤트 처리
+            handleScheduleClick(schedule);
+        }
+        // 변수 초기화
+        startX = undefined;
+        startY = undefined;
+        isDragging = false;
+    });
     
     // 컨텍스트 메뉴 (우클릭 또는 길게 누르기)
     tr.addEventListener('contextmenu', (e) => {
@@ -955,8 +985,37 @@ function createMemoRow(schedule, memoLine, memoIndex) {
         </td>
     `;
     
-    // 메모 행 클릭 시 부모 스케줄 상세보기
-    tr.addEventListener('click', () => handleScheduleClick(schedule));
+    // 메모 행 클릭 시 부모 스케줄 상세보기 (드래그와 클릭 구분)
+    let isDragging = false;
+    let startX, startY;
+    
+    tr.addEventListener('mousedown', (e) => {
+        startX = e.clientX;
+        startY = e.clientY;
+        isDragging = false;
+    });
+    
+    tr.addEventListener('mousemove', (e) => {
+        if (startX !== undefined && startY !== undefined) {
+            const deltaX = Math.abs(e.clientX - startX);
+            const deltaY = Math.abs(e.clientY - startY);
+            // 5px 이상 움직이면 드래그로 간주
+            if (deltaX > 5 || deltaY > 5) {
+                isDragging = true;
+            }
+        }
+    });
+    
+    tr.addEventListener('mouseup', (e) => {
+        if (!isDragging) {
+            // 드래그가 아닌 경우에만 클릭 이벤트 처리
+            handleScheduleClick(schedule);
+        }
+        // 변수 초기화
+        startX = undefined;
+        startY = undefined;
+        isDragging = false;
+    });
     
     return tr;
 }
