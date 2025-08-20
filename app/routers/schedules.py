@@ -130,12 +130,23 @@ def create_schedule(
             #print("👨‍👦 [STEP_2] 부모 ID 없음, parent_order를 0으로 설정")
             schedule_data["parent_order"] = 0
         
+        # 🔧 [OWNER_OVERRIDE] viewer 사용자의 요청을 가로채서 owner_id를 pci8099로 강제 변경
+        actual_owner_id = current_user.id
+        if current_user.username == "viewer":
+            # pci8099 사용자 ID 조회
+            pci8099_user = db.query(User).filter(User.username == "pci8099").first()
+            if pci8099_user:
+                actual_owner_id = pci8099_user.id
+                logger.info(f"🔧 [OWNER_OVERRIDE] viewer 사용자 요청을 가로채서 owner_id를 {pci8099_user.username}(ID: {pci8099_user.id})로 변경")
+            else:
+                logger.warning(f"⚠️ [OWNER_OVERRIDE] pci8099 사용자를 찾을 수 없음, 원래 사용자 ID 사용")
+        
         # 3단계: Schedule 객체 생성
         #print("📝 [STEP_3] Schedule 객체 생성 시작...")
         #print(f"📝 [STEP_3] 최종 schedule_data: {schedule_data}")
-        #print(f"📝 [STEP_3] owner_id: {current_user.id}")
+        #print(f"📝 [STEP_3] owner_id: {actual_owner_id}")
         
-        db_schedule = Schedule(**schedule_data, owner_id=current_user.id)
+        db_schedule = Schedule(**schedule_data, owner_id=actual_owner_id)
         #print(f"📝 [STEP_3] Schedule 객체 생성 완료: {db_schedule}")
         #print(f"📝 [STEP_3] Schedule 객체 속성들: {dir(db_schedule)}")
         #print(f"📝 [STEP_3] Schedule 객체 __dict__: {db_schedule.__dict__}")
@@ -516,10 +527,21 @@ def update_schedule(
     current_user: User = Depends(get_current_active_user)
 ):
     try:
+        # 🔧 [OWNER_OVERRIDE] viewer 사용자의 요청을 가로채서 권한 확인을 pci8099로 대체
+        actual_user_id = current_user.id
+        if current_user.username == "viewer":
+            # pci8099 사용자 ID 조회
+            pci8099_user = db.query(User).filter(User.username == "pci8099").first()
+            if pci8099_user:
+                actual_user_id = pci8099_user.id
+                logger.info(f"🔧 [OWNER_OVERRIDE] viewer 사용자 수정 요청을 가로채서 권한 확인을 {pci8099_user.username}(ID: {pci8099_user.id})로 대체")
+            else:
+                logger.warning(f"⚠️ [OWNER_OVERRIDE] pci8099 사용자를 찾을 수 없음, 원래 사용자 ID 사용")
+        
         # 권한 확인: 일정 소유자이거나 공동 작업자(수정 권한 있음)인지 확인
         from app.core.permissions import can_edit_schedule
         
-        if not can_edit_schedule(db, current_user.id, schedule_id):
+        if not can_edit_schedule(db, actual_user_id, schedule_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, 
                 detail="You don't have permission to edit this schedule"
@@ -532,6 +554,11 @@ def update_schedule(
         # 공동 작업자 정보 제거 (Schedule 모델에 직접 저장되지 않음)
         schedule_data = schedule.dict()
         collaborators = schedule_data.pop('collaborators', [])
+        
+        # 🔧 [OWNER_OVERRIDE] viewer 사용자의 경우 owner_id를 pci8099로 변경
+        if current_user.username == "viewer" and pci8099_user:
+            db_schedule.owner_id = pci8099_user.id
+            logger.info(f"🔧 [OWNER_OVERRIDE] 일정 수정 시 owner_id를 {pci8099_user.username}(ID: {pci8099_user.id})로 변경")
         
         # 일정 정보 업데이트
         for key, value in schedule_data.items():
@@ -689,6 +716,17 @@ async def update_schedule_memo(
         logger.info(f"[MEMO INFO] Schedule found - Title: '{schedule.title}', Owner: {schedule.owner_id}")
         logger.debug(f"[MEMO INFO] Previous memo: '{schedule.memo}'")
         
+        # 🔧 [OWNER_OVERRIDE] viewer 사용자의 메모 요청을 가로채서 memo_author_id를 pci8099로 강제 변경
+        actual_memo_author_id = current_user.id
+        if current_user.username == "viewer":
+            # pci8099 사용자 ID 조회
+            pci8099_user = db.query(User).filter(User.username == "pci8099").first()
+            if pci8099_user:
+                actual_memo_author_id = pci8099_user.id
+                logger.info(f"🔧 [OWNER_OVERRIDE] viewer 사용자 메모 요청을 가로채서 memo_author_id를 {pci8099_user.username}(ID: {pci8099_user.id})로 변경")
+            else:
+                logger.warning(f"⚠️ [OWNER_OVERRIDE] pci8099 사용자를 찾을 수 없음, 원래 사용자 ID 사용")
+        
         # 메모 업데이트
         new_memo = memo_update.memo
         old_memo = schedule.memo
@@ -699,14 +737,14 @@ async def update_schedule_memo(
             return schedule
             
         schedule.memo = new_memo
-        schedule.memo_author_id = current_user.id
+        schedule.memo_author_id = actual_memo_author_id
         schedule.memo_updated_at = datetime.now()
         
-        logger.info(f"[MEMO UPDATE] Memo changed from '{old_memo}' to '{new_memo}'")
+        logger.info(f"[MEMO UPDATE] Memo changed from '{old_memo}' to '{new_memo}' by user ID: {actual_memo_author_id}")
         
         # 알람 생성 로직
         alarm_created = False
-        if schedule.owner_id != current_user.id:  
+        if schedule.owner_id != actual_memo_author_id:  
             # 다른 사용자가 메모를 추가한 경우
             logger.info(f"[ALARM CREATE] Creating memo alarm - Schedule owner: {schedule.owner_id}, Editor: {current_user.id}")
             
