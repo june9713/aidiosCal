@@ -302,18 +302,30 @@ def read_schedules(
         #print(f"🔍 [DEBUG] 현재 사용자({current_user.id})가 선택된 사용자 목록에 포함됨: {current_user_in_selection}")
         
         # 필터링 조건 구성
-        filter_conditions = [
-            Schedule.owner_id.in_(user_ids),  # 선택된 사용자가 소유한 일정 (개인일정 여부 상관없이)
-            # 선택된 사용자가 공동작업자로 포함된 일정들
-            Schedule.id.in_(collaborator_schedule_ids)
-        ]
+        filter_conditions = []
         
-        # 현재 사용자가 선택된 사용자 목록에 포함되어 있는 경우에만 현재 사용자의 일정도 포함
+        # 현재 사용자의 일정은 항상 포함 (개인일정 여부 상관없이)
         if current_user_in_selection:
             #print(f"🔍 [DEBUG] 현재 사용자의 일정도 포함하여 조회")
             filter_conditions.append(Schedule.owner_id == current_user.id)
-        else:
-            pass#print(f"🔍 [DEBUG] 현재 사용자의 일정은 제외하고 조회")
+        
+        # 다른 사용자의 일정은 개인일정이 아닌 것만 포함
+        other_user_conditions = []
+        for user_id in user_ids:
+            if user_id != current_user.id:
+                other_user_conditions.append(
+                    and_(
+                        Schedule.owner_id == user_id,
+                        Schedule.individual == False  # 개인일정 제외
+                    )
+                )
+        
+        if other_user_conditions:
+            filter_conditions.append(or_(*other_user_conditions))
+        
+        # 선택된 사용자가 공동작업자로 포함된 일정들
+        if collaborator_schedule_ids:
+            filter_conditions.append(Schedule.id.in_(collaborator_schedule_ids))
         
         query = query.filter(or_(*filter_conditions))
         #print(f"🔍 [DEBUG] 일반 사용자 필터링 조건 적용 완료")
