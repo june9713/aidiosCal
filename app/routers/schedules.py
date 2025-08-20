@@ -267,10 +267,16 @@ def update_schedule(
     current_user: User = Depends(get_current_active_user)
 ):
     try:
-        db_schedule = db.query(Schedule).filter(
-            Schedule.id == schedule_id,
-            Schedule.owner_id == current_user.id
-        ).first()
+        # 권한 확인: 일정 소유자이거나 공동 작업자(수정 권한 있음)인지 확인
+        from app.core.permissions import can_edit_schedule
+        
+        if not can_edit_schedule(db, current_user.id, schedule_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, 
+                detail="You don't have permission to edit this schedule"
+            )
+        
+        db_schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
         if db_schedule is None:
             raise HTTPException(status_code=404, detail="Schedule not found")
         
@@ -319,9 +325,17 @@ def delete_schedule(
     current_user: User = Depends(get_current_active_user)
 ):
     """일정을 삭제합니다 (soft delete)."""
+    # 권한 확인: 일정 소유자이거나 공동 작업자(삭제 권한 있음)인지 확인
+    from app.core.permissions import can_delete_schedule
+    
+    if not can_delete_schedule(db, current_user.id, schedule_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="You don't have permission to delete this schedule"
+        )
+    
     schedule = db.query(Schedule).filter(
         Schedule.id == schedule_id,
-        Schedule.owner_id == current_user.id,
         Schedule.is_deleted == False
     ).first()
     
@@ -345,10 +359,16 @@ def complete_schedule(
     current_user: User = Depends(get_current_active_user)
 ):
     try:
-        schedule = db.query(Schedule).filter(
-            Schedule.id == schedule_id,
-            Schedule.owner_id == current_user.id
-        ).first()
+        # 권한 확인: 일정 소유자이거나 공동 작업자(완료 처리 권한 있음)인지 확인
+        from app.core.permissions import can_complete_schedule
+        
+        if not can_complete_schedule(db, current_user.id, schedule_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, 
+                detail="You don't have permission to complete this schedule"
+            )
+        
+        schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
         if schedule is None:
             raise HTTPException(status_code=404, detail="Schedule not found")
         
@@ -372,10 +392,16 @@ def share_schedule(
     current_user: User = Depends(get_current_active_user)
 ):
     try:
-        schedule = db.query(Schedule).filter(
-            Schedule.id == schedule_id,
-            Schedule.owner_id == current_user.id
-        ).first()
+        # 권한 확인: 일정 소유자이거나 공동 작업자(공유 권한 있음)인지 확인
+        from app.core.permissions import can_share_schedule
+        
+        if not can_share_schedule(db, current_user.id, schedule_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, 
+                detail="You don't have permission to share this schedule"
+            )
+        
+        schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
         if schedule is None:
             raise HTTPException(status_code=404, detail="Schedule not found")
         
@@ -909,6 +935,9 @@ def get_schedule_collaborators(
 ):
     """일정의 공동 작업자 목록을 반환합니다."""
     try:
+        # 권한 관리 모듈 사용
+        from app.core.permissions import get_schedule_collaborators as get_collaborators
+        
         # 일정이 존재하는지 확인
         schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
         if not schedule:
@@ -929,23 +958,10 @@ def get_schedule_collaborators(
                     detail="이 일정에 접근할 권한이 없습니다"
                 )
         
-        # 공동 작업자 목록 조회
-        collaborators = db.query(ScheduleShare).filter(
-            ScheduleShare.schedule_id == schedule_id
-        ).all()
+        # 권한 관리 모듈을 통해 공동 작업자 목록 조회
+        collaborators = get_collaborators(db, schedule_id)
         
-        # 사용자 정보와 함께 반환
-        result = []
-        for collaborator in collaborators:
-            user = db.query(User).filter(User.id == collaborator.shared_with_id).first()
-            if user:
-                result.append({
-                    "user_id": user.id,
-                    "username": user.username,
-                    "name": user.name
-                })
-        
-        return result
+        return collaborators
         
     except HTTPException:
         raise
@@ -954,4 +970,142 @@ def get_schedule_collaborators(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"공동 작업자 정보를 가져오는 중 오류가 발생했습니다: {str(e)}"
+        )
+
+@router.post("/{schedule_id}/collaborators")
+def add_collaborator(
+    schedule_id: int,
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """일정에 공동 작업자를 추가합니다."""
+    try:
+        # 권한 확인: 일정 소유자이거나 공유 권한이 있는 공동 작업자인지 확인
+        from app.core.permissions import can_share_schedule, add_collaborator_to_schedule
+        
+        if not can_share_schedule(db, current_user.id, schedule_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="이 일정에 공동 작업자를 추가할 권한이 없습니다"
+            )
+        
+        # 사용자가 존재하는지 확인
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="사용자를 찾을 수 없습니다"
+            )
+        
+        # 자신을 공동 작업자로 추가할 수 없음
+        if user_id == current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="자신을 공동 작업자로 추가할 수 없습니다"
+            )
+        
+        # 공동 작업자 추가
+        success = add_collaborator_to_schedule(
+            db=db,
+            schedule_id=schedule_id,
+            user_id=user_id,
+            added_by=current_user.id
+        )
+        
+        if success:
+            return {"message": f"사용자 {user.name}을(를) 공동 작업자로 추가했습니다"}
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="공동 작업자 추가에 실패했습니다"
+            )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error adding collaborator: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"공동 작업자 추가 중 오류가 발생했습니다: {str(e)}"
+        )
+
+@router.delete("/{schedule_id}/collaborators/{user_id}")
+def remove_collaborator(
+    schedule_id: int,
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """일정에서 공동 작업자를 제거합니다."""
+    try:
+        # 권한 확인: 일정 소유자이거나 공유 권한이 있는 공동 작업자인지 확인
+        from app.core.permissions import can_share_schedule, remove_collaborator_from_schedule
+        
+        if not can_share_schedule(db, current_user.id, schedule_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="이 일정에서 공동 작업자를 제거할 권한이 없습니다"
+            )
+        
+        # 공동 작업자 제거
+        success = remove_collaborator_from_schedule(
+            db=db,
+            schedule_id=schedule_id,
+            user_id=user_id
+        )
+        
+        if success:
+            return {"message": "공동 작업자가 제거되었습니다"}
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="공동 작업자를 찾을 수 없습니다"
+            )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error removing collaborator: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"공동 작업자 제거 중 오류가 발생했습니다: {str(e)}"
+        )
+
+@router.get("/{schedule_id}/permissions")
+def get_schedule_permissions(
+    schedule_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """현재 사용자의 특정 일정에 대한 권한 정보를 반환합니다."""
+    try:
+        from app.core.permissions import get_user_schedule_permissions
+        
+        # 일정이 존재하는지 확인
+        schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
+        if not schedule:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="일정을 찾을 수 없습니다"
+            )
+        
+        # 권한 정보 조회
+        permissions = get_user_schedule_permissions(db, current_user.id, schedule_id)
+        
+        if not permissions:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="이 일정에 접근할 권한이 없습니다"
+            )
+        
+        return permissions
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting schedule permissions: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"권한 정보를 가져오는 중 오류가 발생했습니다: {str(e)}"
         )
