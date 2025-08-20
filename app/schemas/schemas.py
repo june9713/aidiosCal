@@ -52,7 +52,7 @@ class ScheduleBase(BaseModel):
     parent_order: Optional[int] = 0
 
 class ScheduleCreate(ScheduleBase):
-    pass
+    collaborators: Optional[List[int]] = []  # 공동작업자 ID 리스트 추가
 
 class ScheduleShareBase(BaseModel):
     schedule_id: int

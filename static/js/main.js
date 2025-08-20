@@ -981,6 +981,38 @@ function handleScheduleClick(schedule) {
         
         return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
     }
+
+    // 공동작업자 정보 렌더링 함수
+    function renderCollaboratorsFromShares(shares) {
+        if (!shares || shares.length === 0) {
+            return '<span class="no-collaborators">공동작업자가 없습니다</span>';
+        }
+        
+        const collaboratorsHtml = shares.map(share => {
+            const permissions = [];
+            if (share.can_edit) permissions.push('✏️ 수정');
+            if (share.can_delete) permissions.push('🗑️ 삭제');
+            if (share.can_complete) permissions.push('✅ 완료');
+            if (share.can_share) permissions.push('📤 공유');
+            
+            const permissionsText = permissions.length > 0 ? permissions.join(' ') : '권한 없음';
+            
+            // shared_with 정보가 있는 경우 사용, 없으면 기본값 사용
+            const collaboratorName = share.shared_with ? 
+                (share.shared_with.name || share.shared_with.username || '알 수 없음') : 
+                '알 수 없음';
+            
+            return `
+                <div class="collaborator-item">
+                    <span class="collaborator-name">${collaboratorName}</span>
+                    <span class="collaborator-role">${share.role || '협업자'}</span>
+                    <span class="collaborator-permissions">${permissionsText}</span>
+                </div>
+            `;
+        }).join('');
+        
+        return collaboratorsHtml;
+    }
  
     modal.innerHTML = `
         <div class="modal-content">
@@ -1000,10 +1032,7 @@ function handleScheduleClick(schedule) {
                         
                         <div class="schedule-info-label">공동작업자</div>
                         <div class="schedule-info-value" id="collaborators-list">
-                            <div class="loading-collaborators">
-                                <span style="display: inline-block; width: 12px; height: 12px; border: 2px solid #f3f3f3; border-top: 2px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 8px;"></span>
-                                공동작업자 정보를 불러오는 중...
-                            </div>
+                            ${renderCollaboratorsFromShares(schedule.shares)}
                         </div>
                         
                         <div class="schedule-info-label">부모작업</div>
@@ -1087,7 +1116,7 @@ function handleScheduleClick(schedule) {
     `;
     document.body.appendChild(modal);
     loadAttachmentsForModal(schedule.id);
-    loadCollaboratorsForModal(schedule.id);
+    // loadCollaboratorsForModal(schedule.id); // 이제 필요 없음 - schedule.shares에서 직접 표시
 }
 
 // 후속 작업 관련 함수들
@@ -1593,6 +1622,7 @@ async function showAddScheduleForm() {
                     <select id="schedule-collaborators" multiple style="width: 100%; min-height: 100px;">
                         <option value="">사용자를 검색하여 선택하세요</option>
                     </select>
+                    <div class="help-text">클릭으로 여러 명을 선택할 수 있습니다. Ctrl/Cmd+클릭으로도 선택 가능합니다.</div>
                     <div id="selected-collaborators" style="margin-top: 5px;"></div>
                 </div>
             </div>
@@ -1605,6 +1635,15 @@ async function showAddScheduleForm() {
             <div class="form-group">
                 <label for="schedule-due-time">마감시간 *</label>
                 <input type="datetime-local" id="schedule-due-time" value="${nowDateTime.split('T')[0]}" required>
+                <div class="due-time-quick-buttons">
+                    <button type="button" onclick="setQuickDueTime(1)">1시간뒤</button>
+                    <button type="button" onclick="setQuickDueTime(6)">6시간뒤</button>
+                    <button type="button" onclick="setQuickDueTime(12)">12시간뒤</button>
+                    <button type="button" onclick="setQuickDueTime(24)">1일뒤</button>
+                    <button type="button" onclick="setQuickDueTime(72)">3일뒤</button>
+                    <button type="button" onclick="setQuickDueTime(168)">1주일뒤</button>
+                    <button type="button" onclick="setQuickDueTime(720)">한달뒤</button>
+                </div>
             </div>
 
             <div class="form-group">
@@ -1712,6 +1751,34 @@ async function updateAlarmTimeOnDueTimeChange() {
     alarmTimeInput.value = alarmTime.toISOString().slice(0, 16);
 }
 
+async function setQuickDueTime(hoursAfter) {
+    console.log('setQuickDueTime0', hoursAfter);
+    const dueTimeInput = document.getElementById('schedule-due-time');
+    if (!dueTimeInput) {
+        alert('마감시간 입력 필드를 찾을 수 없습니다.'); 
+        return; 
+    }
+    
+    // 현재 시간을 기준으로 계산
+    const now = new Date();
+    const koreaTimeOffset = 9 * 60 * 60 * 1000;
+    const koreaNow = new Date(now.getTime() + koreaTimeOffset);
+    
+    // 현재 시간에 hoursAfter 시간을 더함
+    const newDueTime = new Date(koreaNow.getTime() + (hoursAfter * 60 * 60 * 1000));
+    console.log('setQuickDueTime1', newDueTime);
+    
+    // datetime-local 입력 필드 형식으로 변환 (YYYY-MM-DDTHH:mm)
+    const year = newDueTime.getFullYear();
+    const month = String(newDueTime.getMonth() + 1).padStart(2, '0');
+    const day = String(newDueTime.getDate()).padStart(2, '0');
+    const hours = String(newDueTime.getHours()).padStart(2, '0');
+    const minutes = String(newDueTime.getMinutes()).padStart(2, '0');
+    const dueDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
+    console.log('setQuickDueTime2', dueDateTime);
+    dueTimeInput.value = dueDateTime;
+}
+
 async function setQuickAlarmTime(hoursBefore) {
     console.log('setQuickAlarmTime0', hoursBefore);
     const dueTimeInput = document.getElementById('schedule-due-time');
@@ -1781,14 +1848,24 @@ function addPrivateSchedule() {
 async function handleAddSchedule(e) {
     e.preventDefault();
     const token = localStorage.getItem('token');
-    if (!token) return;
+    if (!token) {
+        console.error('❌ [SCHEDULE_CREATE] No authentication token found');
+        return;
+    }
+
+    console.log('🚀 [SCHEDULE_CREATE] Starting schedule creation process...');
 
     // 개인일정이 아닌 경우(공개일정)에 확인 메시지 표시
     const isIndividual = document.getElementById('schedule-individual').checked;
+    console.log(`📋 [SCHEDULE_CREATE] Individual schedule setting: ${isIndividual}`);
+    
     if (!isIndividual) {
+        console.log('⚠️ [SCHEDULE_CREATE] Public schedule detected, showing confirmation dialog');
         if (!confirm('공개일정은 모두가 이 일정을 함께 볼 수 있습니다. 발행하시겠습니까?')) {
+            console.log('❌ [SCHEDULE_CREATE] User cancelled public schedule creation');
             return; // 사용자가 취소를 선택한 경우 함수 종료
         }
+        console.log('✅ [SCHEDULE_CREATE] User confirmed public schedule creation');
     }
 
     function formatDateTimeForAPI(dateStr) {
@@ -1800,27 +1877,44 @@ async function handleAddSchedule(e) {
         const hours = String(date.getHours()).padStart(2, '0');
         const minutes = String(date.getMinutes()).padStart(2, '0');
         const seconds = String(date.getSeconds()).padStart(2, '0');
-        return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+        const formatted = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+        console.log(`🕒 [SCHEDULE_CREATE] Formatted datetime: ${dateStr} → ${formatted}`);
+        return formatted;
     }
 
+    // 폼 데이터 수집
     const projectInput = document.getElementById('schedule-project');
     const titleInput = document.getElementById('schedule-title');
     const project = projectInput.value.trim() || '일정';
     const title = titleInput.value.trim() || '일정';
     const dueTime = document.getElementById('schedule-due-time').value;
     const priority = document.getElementById('schedule-priority').value;
+    
+    console.log(`📋 [SCHEDULE_CREATE] Form data collected:`);
+    console.log(`   Project: "${project}"`);
+    console.log(`   Title: "${title}"`);
+    console.log(`   Due Time: "${dueTime}"`);
+    console.log(`   Priority: "${priority}"`);
+    
     if (!dueTime || !priority) {
-        alert('마감시간과 우선순위는 필수 입력 항목입니다.'); return;
+        console.error('❌ [SCHEDULE_CREATE] Required fields missing: dueTime or priority');
+        alert('마감시간과 우선순위는 필수 입력 항목입니다.'); 
+        return;
     }
 
     // 부모 ID와 parent_order 가져오기
     const parentIdInput = document.getElementById('parent-id');
     const parentOrderInput = document.getElementById('parent-order');
     const parent_id = parentIdInput && parentIdInput.value ? parseInt(parentIdInput.value) : null;
-    const parent_order = parentOrderInput && parentOrderInput.value ? parseInt(parentOrderInput.value) : 0;
+    const parent_order = parentOrderInput && parentOrderInput.value;
+    
+    console.log(`👨‍👦 [SCHEDULE_CREATE] Parent information:`);
+    console.log(`   Parent ID: ${parent_id}`);
+    console.log(`   Parent Order: ${parent_order}`);
 
     // 새로운 프로젝트명인 경우 projects.json에 추가
     if (project !== '일정') {
+        console.log(`📁 [SCHEDULE_CREATE] New project detected: "${project}", attempting to add to projects...`);
         try {
             const response = await fetch('/projects/', {
                 method: 'POST',
@@ -1831,23 +1925,47 @@ async function handleAddSchedule(e) {
                 const error = await response.json();
                 // 이미 존재하는 프로젝트명인 경우는 무시
                 if (error.detail !== "이미 존재하는 프로젝트입니다") {
+                    console.error(`❌ [SCHEDULE_CREATE] Failed to add project "${project}":`, error);
                     throw new Error(error.detail);
+                } else {
+                    console.log(`ℹ️ [SCHEDULE_CREATE] Project "${project}" already exists, continuing...`);
                 }
+            } else {
+                console.log(`✅ [SCHEDULE_CREATE] Successfully added new project: "${project}"`);
             }
         } catch (error) {
-            log('ERROR', 'Add project error', error);
+            console.error('❌ [SCHEDULE_CREATE] Project creation error:', error);
             // 프로젝트 추가 실패는 일정 생성에 영향을 주지 않도록 함
         }
+    } else {
+        console.log(`ℹ️ [SCHEDULE_CREATE] Using default project name: "일정"`);
     }
 
     // 공동 작업자 정보 가져오기
+    console.log('👥 [SCHEDULE_CREATE] Processing collaborators...');
     const collaboratorsSelect = document.getElementById('schedule-collaborators');
     const selectedCollaborators = [];
+    
     if (collaboratorsSelect) {
         const selectedOptions = Array.from(collaboratorsSelect.selectedOptions);
-        selectedCollaborators.push(...selectedOptions.map(option => parseInt(option.value)));
+        console.log(`👥 [SCHEDULE_CREATE] Selected options count: ${selectedOptions.length}`);
+        
+        for (let i = 0; i < selectedOptions.length; i++) {
+            const option = selectedOptions[i];
+            if (option.value && option.value.trim() !== '') {
+                const collaboratorId = parseInt(option.value);
+                const collaboratorName = option.textContent;
+                selectedCollaborators.push(collaboratorId);
+                console.log(`👥 [SCHEDULE_CREATE] Collaborator ${i+1}: ID ${collaboratorId}, Name: "${collaboratorName}"`);
+            }
+        }
+        
+        console.log(`👥 [SCHEDULE_CREATE] Final collaborators array: [${selectedCollaborators.join(', ')}]`);
+    } else {
+        console.warn('⚠️ [SCHEDULE_CREATE] Collaborators select element not found');
     }
 
+    // 일정 데이터 구성
     const scheduleData = {
         project_name: project,
         title: title,
@@ -1862,24 +1980,51 @@ async function handleAddSchedule(e) {
         parent_order: parent_order,
         collaborators: selectedCollaborators
     };
+    
+    console.log('📤 [SCHEDULE_CREATE] Final schedule data prepared:');
+    console.log('   ', JSON.stringify(scheduleData, null, 2));
 
     try {
+        console.log('🌐 [SCHEDULE_CREATE] Sending POST request to /schedules/...');
         const response = await fetch('/schedules/', {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify(scheduleData),
         });
+        
+        console.log(`🌐 [SCHEDULE_CREATE] Response received: ${response.status} ${response.statusText}`);
+        
         if (response.ok) {
+            const responseData = await response.json();
+            console.log('✅ [SCHEDULE_CREATE] Schedule created successfully!');
+            console.log('✅ [SCHEDULE_CREATE] Response data:', responseData);
+            
+            // 공동작업자 정보 확인
+            if (responseData.shares && responseData.shares.length > 0) {
+                console.log(`👥 [SCHEDULE_CREATE] Collaborators confirmed in response: ${responseData.shares.length} shares`);
+                responseData.shares.forEach((share, index) => {
+                    console.log(`👥 [SCHEDULE_CREATE] Share ${index+1}: Schedule ID ${share.schedule_id}, User ID ${share.shared_with_id}`);
+                });
+            } else {
+                console.log('ℹ️ [SCHEDULE_CREATE] No collaborators in response (may be individual schedule)');
+            }
+            
             cancelAddSchedule();
+            console.log('🔄 [SCHEDULE_CREATE] Refreshing schedules...');
             await refreshSchedules();
-            // 프로젝트 목록 새로고침
+            
+            console.log('🔄 [SCHEDULE_CREATE] Refreshing project list...');
             await loadProjectList();
+            
+            console.log('🎉 [SCHEDULE_CREATE] Schedule creation process completed successfully!');
         } else {
             const error = await response.json();
+            console.error('❌ [SCHEDULE_CREATE] Schedule creation failed:', error);
             log('ERROR', 'Schedule creation error', error);
             alert(error.detail || '일정 추가에 실패했습니다.');
         }
     } catch (error) {
+        console.error('❌ [SCHEDULE_CREATE] Network or other error during schedule creation:', error);
         log('ERROR', 'Add schedule error', error);
         alert('일정 추가 중 오류가 발생했습니다.');
     }
@@ -1960,6 +2105,7 @@ async function editSchedule(scheduleId) {
                     <select id="edit-schedule-collaborators" multiple style="width: 100%; min-height: 100px;">
                         <option value="">사용자를 검색하여 선택하세요</option>
                     </select>
+                    <div class="help-text">클릭으로 여러 명을 선택할 수 있습니다. Ctrl/Cmd+클릭으로도 선택 가능합니다.</div>
                     <div id="edit-selected-collaborators" style="margin-top: 5px;"></div>
                 </div>
             </div>
@@ -1971,12 +2117,12 @@ async function editSchedule(scheduleId) {
 
             <div class="form-group">
                 <label for="edit-due-time">마감시간 *</label>
-                <input type="datetime-local" id="edit-due-time" value="${scheduleDueTime.split('T')[0]}" required>
+                <input type="datetime-local" id="edit-due-time" value="${scheduleDueTime}" required>
             </div>
 
             <div class="form-group">
                 <label for="edit-alarm-time">알람시간</label>
-                <input type="datetime-local" id="edit-alarm-time" value="${scheduleAlarmTime.split('T')[0]}">
+                <input type="datetime-local" id="edit-alarm-time" value="${scheduleAlarmTime}">
             </div>
 
             <div class="form-group">
@@ -2024,9 +2170,22 @@ async function editSchedule(scheduleId) {
     await loadProjectList('edit-project', 'edit-project-list');
     
     // 공동 작업자 기능 초기화 (수정 모드)
+    console.log(`[DEBUG] editSchedule - 공동 작업자 기능 초기화 시작`);
     initializeCollaborators('edit');
     
+    // select 요소 상태 확인
+    setTimeout(() => {
+        const collaboratorsSelect = document.getElementById('edit-schedule-collaborators');
+        console.log(`[DEBUG] editSchedule - select 요소 생성 후 상태:`, collaboratorsSelect);
+        if (collaboratorsSelect) {
+            console.log(`[DEBUG] select의 multiple 속성:`, collaboratorsSelect.multiple);
+            console.log(`[DEBUG] select의 옵션 개수:`, collaboratorsSelect.options.length);
+            console.log(`[DEBUG] select의 선택된 옵션 개수:`, collaboratorsSelect.selectedOptions.length);
+        }
+    }, 100);
+    
     // 기존 공동 작업자 정보 로드 및 설정
+    console.log(`[DEBUG] editSchedule - 기존 공동 작업자 정보 로드 시작`);
     loadExistingCollaborators(schedule.id, 'edit');
 }
 
@@ -2060,6 +2219,10 @@ async function updateSchedule(scheduleId) {
     // 공동 작업자 정보 수집
     const collaboratorsSelect = document.getElementById('edit-schedule-collaborators');
     const selectedCollaborators = Array.from(collaboratorsSelect.selectedOptions).map(option => parseInt(option.value));
+    
+    // 디버깅: 선택된 공동작업자 정보 로그
+    console.log('Selected collaborators:', selectedCollaborators);
+    console.log('Selected options:', Array.from(collaboratorsSelect.selectedOptions));
     
     const updatedData = {
         project_name: projectName,
@@ -3319,34 +3482,51 @@ function getCurrentUserId() {
 
 // 사용자 목록 로드
 async function loadUsers() {
+    console.log('👥 [USERS_LOAD] loadUsers 함수 호출 시작');
     try {
+        console.log('🌐 [USERS_LOAD] /users/ API 호출 중...');
         const response = await apiRequest('/users/');
+        console.log(`🌐 [USERS_LOAD] API 응답: ${response.status} ${response.statusText}`);
+        
         if (response.ok) {
             allUsers = await response.json();
-            log('INFO', `사용자 ${allUsers.length}명 로드 완료`);
+            console.log(`✅ [USERS_LOAD] 사용자 ${allUsers.length}명 로드 완료`);
+            console.log(`👥 [USERS_LOAD] 로드된 사용자들:`, allUsers.map(u => `${u.username} (${u.name}) - ID: ${u.id}`));
             
             // 사용자 로드 완료 후 드롭다운 즉시 업데이트
             const collaboratorsSelect = document.getElementById('schedule-collaborators');
             if (collaboratorsSelect) {
+                console.log('🔄 [USERS_LOAD] collaboratorsSelect 요소 발견, 드롭다운 업데이트 실행');
                 updateCollaboratorsDropdown('');
+            } else {
+                console.log('ℹ️ [USERS_LOAD] collaboratorsSelect 요소를 찾을 수 없음 (폼이 아직 로드되지 않음)');
             }
         } else {
+            console.error('❌ [USERS_LOAD] 사용자 목록 로드 실패:', response.status, response.statusText);
             log('ERROR', '사용자 목록 로드 실패');
         }
     } catch (error) {
-        log('ERROR', '사용자 목록 로드 중 오류 발생', error);
+        console.error('❌ [USERS_LOAD] 사용자 목록 로드 중 오류 발생:', error);
+        log('ERROR', '사용자 목록 로드 실패', error);
     }
 }
 
 // 사용자 검색 및 필터링
 function searchUsers(searchTerm) {
+    console.log(`🔍 [USERS_SEARCH] searchUsers 호출 - searchTerm: "${searchTerm}"`);
+    
     // admin, viewer, 자기 자신은 항상 제외
     const currentUserId = getCurrentUserId();
+    console.log(`🔍 [USERS_SEARCH] 현재 사용자 ID: ${currentUserId}`);
+    
     const filteredUsers = allUsers.filter(user => 
         user.username !== 'admin' && 
         user.username !== 'viewer' && 
         user.id !== currentUserId
     );
+    
+    console.log(`🔍 [USERS_SEARCH] 필터링 전 사용자 수: ${allUsers.length}`);
+    console.log(`🔍 [USERS_SEARCH] admin/viewer/자기자신 제외 후 사용자 수: ${filteredUsers.length}`);
     
     // 중복 사용자 제거 (username 기준으로 첫 번째만 유지)
     const uniqueUsers = [];
@@ -3356,18 +3536,28 @@ function searchUsers(searchTerm) {
         if (!seenUsernames.has(user.username)) {
             seenUsernames.add(user.username);
             uniqueUsers.push(user);
+        } else {
+            console.log(`⚠️ [USERS_SEARCH] 중복 사용자 제거: ${user.username} (${user.name})`);
         }
     });
     
+    console.log(`🔍 [USERS_SEARCH] 중복 제거 후 사용자 수: ${uniqueUsers.length}`);
+    
     if (!searchTerm || searchTerm.trim() === '') {
+        console.log(`🔍 [USERS_SEARCH] 검색어 없음, 전체 사용자 반환`);
         return uniqueUsers;
     }
     
     const term = searchTerm.toLowerCase();
-    return uniqueUsers.filter(user => 
+    const searchResults = uniqueUsers.filter(user => 
         user.username.toLowerCase().includes(term) || 
         user.name.toLowerCase().includes(term)
     );
+    
+    console.log(`🔍 [USERS_SEARCH] 검색어 "${searchTerm}"에 대한 결과: ${searchResults.length}명`);
+    console.log(`🔍 [USERS_SEARCH] 검색 결과:`, searchResults.map(u => `${u.username} (${u.name})`));
+    
+    return searchResults;
 }
 
 // 공동 작업자 검색 입력 이벤트 처리
@@ -3376,58 +3566,117 @@ function setupCollaboratorsSearch(formType = 'add') {
     const searchInput = document.getElementById(`${prefix}schedule-collaborators-search`);
     const collaboratorsSelect = document.getElementById(`${prefix}schedule-collaborators`);
     
-    if (!searchInput || !collaboratorsSelect) return;
+    console.log(`🔍 [COLLABORATORS_SEARCH] setupCollaboratorsSearch 호출 - formType: ${formType}`);
+    console.log(`🔍 [COLLABORATORS_SEARCH] searchInput:`, searchInput);
+    console.log(`🔍 [COLLABORATORS_SEARCH] collaboratorsSelect:`, collaboratorsSelect);
     
+    if (!searchInput || !collaboratorsSelect) {
+        console.error(`❌ [COLLABORATORS_SEARCH] 필수 요소가 없음 - searchInput: ${!!searchInput}, collaboratorsSelect: ${!!collaboratorsSelect}`);
+        return;
+    }
+    
+    console.log(`✅ [COLLABORATORS_SEARCH] input 이벤트 리스너 추가`);
     searchInput.addEventListener('input', function() {
         const searchTerm = this.value.trim();
+        console.log(`🔍 [COLLABORATORS_SEARCH] 검색 입력: "${searchTerm}"`);
         
         // 디바운싱 적용
         if (collaboratorsSearchTimeout) {
             clearTimeout(collaboratorsSearchTimeout);
+            console.log(`⏱️ [COLLABORATORS_SEARCH] 기존 타임아웃 취소`);
         }
         
         collaboratorsSearchTimeout = setTimeout(() => {
+            console.log(`🔍 [COLLABORATORS_SEARCH] 디바운싱 후 updateCollaboratorsDropdown 호출: "${searchTerm}"`);
             updateCollaboratorsDropdown(searchTerm, formType);
         }, 300);
     });
+    
+    // 검색 입력 필드가 비어있을 때 전체 사용자 목록 표시 (선택된 값들 유지)
+    console.log(`✅ [COLLABORATORS_SEARCH] blur 이벤트 리스너 추가`);
+    searchInput.addEventListener('blur', function() {
+        if (this.value.trim() === '') {
+            console.log(`🔍 [COLLABORATORS_SEARCH] 검색 필드가 비어있음, 전체 목록 표시 예정`);
+            setTimeout(() => {
+                console.log(`🔍 [COLLABORATORS_SEARCH] blur setTimeout 실행 - updateCollaboratorsDropdown 호출`);
+                updateCollaboratorsDropdown('', formType);
+            }, 100);
+        }
+    });
+    
+    console.log(`✅ [COLLABORATORS_SEARCH] setupCollaboratorsSearch 완료`);
 }
 
 // 공동 작업자 드롭다운 업데이트
 function updateCollaboratorsDropdown(searchTerm, formType = 'add') {
     const prefix = formType === 'edit' ? 'edit-' : '';
     const collaboratorsSelect = document.getElementById(`${prefix}schedule-collaborators`);
-    if (!collaboratorsSelect) return;
+    if (!collaboratorsSelect) {
+        console.error(`❌ [COLLABORATORS_DROPDOWN] collaboratorsSelect 요소를 찾을 수 없음`);
+        return;
+    }
+    
+    console.log(`🔄 [COLLABORATORS_DROPDOWN] updateCollaboratorsDropdown 호출 - formType: ${formType}, searchTerm: "${searchTerm}"`);
+    console.log(`🔄 [COLLABORATORS_DROPDOWN] 현재 select 요소:`, collaboratorsSelect);
+    console.log(`🔄 [COLLABORATORS_DROPDOWN] select의 multiple 속성:`, collaboratorsSelect.multiple);
+    
+    // 현재 선택된 값들을 보존
+    const currentlySelected = Array.from(collaboratorsSelect.selectedOptions).map(option => option.value);
+    console.log(`🔄 [COLLABORATORS_DROPDOWN] 현재 선택된 값들:`, currentlySelected);
+    console.log(`🔄 [COLLABORATORS_DROPDOWN] 현재 선택된 옵션 개수:`, collaboratorsSelect.selectedOptions.length);
     
     // 기존 옵션 제거 (첫 번째 안내 메시지 제외)
+    const originalLength = collaboratorsSelect.children.length;
+    console.log(`🔄 [COLLABORATORS_DROPDOWN] 기존 옵션 개수:`, originalLength);
+    
     while (collaboratorsSelect.children.length > 1) {
         collaboratorsSelect.removeChild(collaboratorsSelect.lastChild);
     }
+    console.log(`🔄 [COLLABORATORS_DROPDOWN] 옵션 제거 후 개수:`, collaboratorsSelect.children.length);
     
     const filteredUsers = searchUsers(searchTerm);
+    console.log(`🔍 [COLLABORATORS_DROPDOWN] 필터링된 사용자 수:`, filteredUsers.length);
+    console.log(`🔍 [COLLABORATORS_DROPDOWN] 필터링된 사용자들:`, filteredUsers.map(u => `${u.username} (${u.name})`));
     
     // 사용자가 있는 경우 안내 메시지 제거
     if (filteredUsers.length > 0) {
-        const firstOption = collaboratorsSelect.querySelector('option[value=""]');
-        if (firstOption) {
-            firstOption.remove();
+        if (collaboratorsSelect.children.length > 0) {
+            collaboratorsSelect.removeChild(collaboratorsSelect.firstChild);
+            console.log(`🔄 [COLLABORATORS_DROPDOWN] 안내 메시지 제거됨`);
+        }
+        
+        // 필터링된 사용자들을 옵션으로 추가
+        filteredUsers.forEach((user, index) => {
+            const option = document.createElement('option');
+            option.value = user.id;
+            option.textContent = `${user.username} (${user.name})`;
+            
+            // 이전에 선택되었던 사용자인지 확인
+            if (currentlySelected.includes(user.id.toString())) {
+                option.selected = true;
+                console.log(`✅ [COLLABORATORS_DROPDOWN] 사용자 ${user.username} 선택 상태 복원`);
+            }
+            
+            collaboratorsSelect.appendChild(option);
+            console.log(`➕ [COLLABORATORS_DROPDOWN] 옵션 추가: ${user.username} (${user.name}) - ID: ${user.id}`);
+        });
+        
+        console.log(`✅ [COLLABORATORS_DROPDOWN] 총 ${filteredUsers.length}개 옵션 추가 완료`);
+    } else {
+        // 사용자가 없는 경우 안내 메시지 추가
+        if (collaboratorsSelect.children.length === 0) {
+            const noUsersOption = document.createElement('option');
+            noUsersOption.value = '';
+            noUsersOption.textContent = '검색 결과가 없습니다.';
+            noUsersOption.disabled = true;
+            collaboratorsSelect.appendChild(noUsersOption);
+            console.log(`ℹ️ [COLLABORATORS_DROPDOWN] "검색 결과 없음" 메시지 추가`);
         }
     }
     
-    filteredUsers.forEach(user => {
-        const option = document.createElement('option');
-        option.value = user.id;
-        option.textContent = `${user.username} (${user.name})`;
-        collaboratorsSelect.appendChild(option);
-    });
-    
-    // 사용자가 없는 경우 안내 메시지 추가
-    if (filteredUsers.length === 0) {
-        const noResultsOption = document.createElement('option');
-        noResultsOption.value = "";
-        noResultsOption.textContent = "검색 결과가 없습니다";
-        noResultsOption.disabled = true;
-        collaboratorsSelect.appendChild(noResultsOption);
-    }
+    // 선택된 공동 작업자 표시 업데이트
+    updateSelectedCollaborators(formType);
+    console.log(`🔄 [COLLABORATORS_DROPDOWN] updateCollaboratorsDropdown 완료`);
 }
 
 // 선택된 공동 작업자 표시
@@ -3436,39 +3685,68 @@ function updateSelectedCollaborators(formType = 'add') {
     const collaboratorsSelect = document.getElementById(`${prefix}schedule-collaborators`);
     const selectedContainer = document.getElementById(`${prefix}selected-collaborators`);
     
-    if (!collaboratorsSelect || !selectedContainer) return;
+    console.log(`👥 [COLLABORATORS_DISPLAY] updateSelectedCollaborators 호출 - formType: ${formType}`);
+    console.log(`👥 [COLLABORATORS_DISPLAY] select 요소:`, collaboratorsSelect);
+    console.log(`👥 [COLLABORATORS_DISPLAY] selectedContainer:`, selectedContainer);
+    
+    if (!collaboratorsSelect || !selectedContainer) {
+        console.error(`❌ [COLLABORATORS_DISPLAY] 필수 요소가 없음 - select: ${!!collaboratorsSelect}, container: ${!!selectedContainer}`);
+        return;
+    }
     
     const selectedOptions = Array.from(collaboratorsSelect.selectedOptions);
+    console.log(`👥 [COLLABORATORS_DISPLAY] 선택된 옵션들:`, selectedOptions.map(opt => `${opt.value} (${opt.textContent})`));
+    console.log(`👥 [COLLABORATORS_DISPLAY] 선택된 옵션 개수:`, selectedOptions.length);
+    
     const selectedUsers = selectedOptions.map(option => {
         const user = allUsers.find(u => u.id == option.value);
+        console.log(`👥 [COLLABORATORS_DISPLAY] 옵션 ${option.value}에 대한 사용자:`, user ? `${user.username} (${user.name})` : '사용자를 찾을 수 없음');
         return user ? { id: user.id, username: user.username, name: user.name } : null;
     }).filter(Boolean);
     
+    console.log(`👥 [COLLABORATORS_DISPLAY] 최종 선택된 사용자들:`, selectedUsers.map(u => `${u.username} (${u.name}) - ID: ${u.id}`));
+    
     if (selectedUsers.length === 0) {
         selectedContainer.innerHTML = '<span style="color: #666;">선택된 공동 작업자가 없습니다</span>';
+        console.log(`ℹ️ [COLLABORATORS_DISPLAY] 선택된 사용자가 없음 - 빈 메시지 표시`);
         return;
     }
     
     const selectedHtml = selectedUsers.map(user => 
-        `<span class="selected-collaborator" style="display: inline-block; background: #e3f2fd; padding: 2px 8px; margin: 2px; border-radius: 12px; font-size: 12px;">
+        `<span class="selected-collaborator">
             ${user.username} (${user.name})
-            <button type="button" onclick="removeCollaborator(${user.id}, '${formType}')" style="background: none; border: none; color: #666; cursor: pointer; margin-left: 5px;">×</button>
+            <button type="button" onclick="removeCollaborator(${user.id}, '${formType}')">×</button>
         </span>`
     ).join('');
     
     selectedContainer.innerHTML = selectedHtml;
+    console.log(`✅ [COLLABORATORS_DISPLAY] 선택된 사용자 HTML 업데이트 완료 - ${selectedUsers.length}명`);
+    console.log(`✅ [COLLABORATORS_DISPLAY] HTML 내용:`, selectedHtml);
 }
 
 // 공동 작업자 제거
 function removeCollaborator(userId, formType = 'add') {
     const prefix = formType === 'edit' ? 'edit-' : '';
     const collaboratorsSelect = document.getElementById(`${prefix}schedule-collaborators`);
-    if (!collaboratorsSelect) return;
+    
+    console.log(`[DEBUG] removeCollaborator 호출 - userId: ${userId}, formType: ${formType}`);
+    console.log(`[DEBUG] select 요소:`, collaboratorsSelect);
+    
+    if (!collaboratorsSelect) {
+        console.log(`[DEBUG] select 요소를 찾을 수 없음`);
+        return;
+    }
     
     const option = collaboratorsSelect.querySelector(`option[value="${userId}"]`);
+    console.log(`[DEBUG] 제거할 옵션:`, option);
+    
     if (option) {
+        console.log(`[DEBUG] 옵션 선택 해제 전 - selected: ${option.selected}`);
         option.selected = false;
+        console.log(`[DEBUG] 옵션 선택 해제 후 - selected: ${option.selected}`);
         updateSelectedCollaborators(formType);
+    } else {
+        console.log(`[DEBUG] 제거할 옵션을 찾을 수 없음`);
     }
 }
 
@@ -3476,9 +3754,78 @@ function removeCollaborator(userId, formType = 'add') {
 function setupCollaboratorsSelection(formType = 'add') {
     const prefix = formType === 'edit' ? 'edit-' : '';
     const collaboratorsSelect = document.getElementById(`${prefix}schedule-collaborators`);
-    if (!collaboratorsSelect) return;
     
-    collaboratorsSelect.addEventListener('change', () => updateSelectedCollaborators(formType));
+    console.log(`👥 [COLLABORATORS_SELECTION] setupCollaboratorsSelection 호출 - formType: ${formType}`);
+    console.log(`👥 [COLLABORATORS_SELECTION] collaboratorsSelect:`, collaboratorsSelect);
+    
+    if (!collaboratorsSelect) {
+        console.error(`❌ [COLLABORATORS_SELECTION] select 요소를 찾을 수 없음`);
+        return;
+    }
+    
+    // 기존 이벤트 리스너 제거 (중복 방지)
+    const newSelect = collaboratorsSelect.cloneNode(true);
+    collaboratorsSelect.parentNode.replaceChild(newSelect, collaboratorsSelect);
+    console.log(`🔄 [COLLABORATORS_SELECTION] 기존 select 요소를 새 요소로 교체하여 이벤트 리스너 중복 방지`);
+    
+    console.log(`✅ [COLLABORATORS_SELECTION] mousedown 이벤트 리스너 추가 (다중선택 지원)`);
+    
+    // mousedown 이벤트로 다중선택 처리
+    newSelect.addEventListener('mousedown', (event) => {
+        const targetOption = event.target;
+        
+        // 옵션이 아닌 경우 무시
+        if (targetOption.tagName !== 'OPTION') {
+            console.log(`ℹ️ [COLLABORATORS_SELECTION] mousedown 이벤트 - 옵션이 아닌 요소 클릭:`, targetOption.tagName);
+            return;
+        }
+        
+        console.log(`👥 [COLLABORATORS_SELECTION] mousedown 이벤트 - 옵션: ${targetOption.value}, 현재 선택됨: ${targetOption.selected}`);
+        console.log(`👥 [COLLABORATORS_SELECTION] 옵션 텍스트: "${targetOption.textContent}"`);
+        
+        // Ctrl/Cmd 키가 눌려있지 않은 경우에만 커스텀 처리
+        if (!event.ctrlKey && !event.metaKey) {
+            event.preventDefault();
+            console.log(`👥 [COLLABORATORS_SELECTION] Ctrl/Cmd 키가 눌리지 않음, 커스텀 처리 실행`);
+            
+            // 현재 선택된 모든 옵션들
+            const currentSelected = Array.from(newSelect.selectedOptions);
+            console.log(`👥 [COLLABORATORS_SELECTION] 현재 선택된 옵션들:`, currentSelected.map(opt => `${opt.value} (${opt.textContent})`));
+            
+            // 클릭된 옵션이 이미 선택되어 있는지 확인
+            const isAlreadySelected = targetOption.selected;
+            
+            if (isAlreadySelected) {
+                // 이미 선택된 옵션이면 선택 해제
+                console.log(`👥 [COLLABORATORS_SELECTION] 옵션 ${targetOption.value} (${targetOption.textContent}) 선택 해제`);
+                targetOption.selected = false;
+            } else {
+                // 선택되지 않은 옵션이면 선택 추가 (기존 선택 유지)
+                console.log(`👥 [COLLABORATORS_SELECTION] 옵션 ${targetOption.value} (${targetOption.textContent}) 선택 추가`);
+                targetOption.selected = true;
+            }
+            
+            // 선택 상태 업데이트
+            setTimeout(() => {
+                console.log(`🔄 [COLLABORATORS_SELECTION] 선택 상태 변경 후 updateSelectedCollaborators 호출`);
+                updateSelectedCollaborators(formType);
+            }, 10);
+        } else {
+            console.log(`👥 [COLLABORATORS_SELECTION] Ctrl/Cmd 키가 눌림, 기본 다중선택 동작 허용`);
+        }
+    });
+    
+    // change 이벤트도 유지 (Ctrl/Cmd 키를 사용한 경우를 위해)
+    console.log(`✅ [COLLABORATORS_SELECTION] change 이벤트 리스너 추가`);
+    newSelect.addEventListener('change', (event) => {
+        console.log(`🔄 [COLLABORATORS_SELECTION] change 이벤트 발생!`);
+        console.log(`🔄 [COLLABORATORS_SELECTION] 이벤트 타겟:`, event.target);
+        console.log(`🔄 [COLLABORATORS_SELECTION] 선택된 옵션 개수:`, event.target.selectedOptions.length);
+        console.log(`🔄 [COLLABORATORS_SELECTION] 선택된 값들:`, Array.from(event.target.selectedOptions).map(option => `${option.value} (${option.textContent})`));
+        updateSelectedCollaborators(formType);
+    });
+    
+    console.log(`✅ [COLLABORATORS_SELECTION] setupCollaboratorsSelection 완료`);
 }
 
 // 기존 공동 작업자 정보 로드
@@ -3503,33 +3850,79 @@ function setSelectedCollaborators(collaborators, formType) {
     const prefix = formType === 'edit' ? 'edit-' : '';
     const collaboratorsSelect = document.getElementById(`${prefix}schedule-collaborators`);
     
-    if (!collaboratorsSelect) return;
+    console.log(`[DEBUG] setSelectedCollaborators 호출 - collaborators:`, collaborators, `formType: ${formType}`);
+    console.log(`[DEBUG] select 요소:`, collaboratorsSelect);
+    
+    if (!collaboratorsSelect) {
+        console.log(`[DEBUG] select 요소를 찾을 수 없음`);
+        return;
+    }
+    
+    console.log(`[DEBUG] 설정 전 선택된 옵션 개수:`, collaboratorsSelect.selectedOptions.length);
     
     // 모든 옵션 선택 해제
     Array.from(collaboratorsSelect.options).forEach(option => {
         option.selected = false;
     });
+    console.log(`[DEBUG] 모든 옵션 선택 해제 완료`);
     
     // 기존 공동 작업자 선택
     collaborators.forEach(collaborator => {
         const option = collaboratorsSelect.querySelector(`option[value="${collaborator.user_id}"]`);
+        console.log(`[DEBUG] collaborator ${collaborator.user_id}에 대한 옵션:`, option);
         if (option) {
             option.selected = true;
+            console.log(`[DEBUG] 옵션 ${collaborator.user_id} 선택됨`);
+        } else {
+            console.log(`[DEBUG] 옵션 ${collaborator.user_id}를 찾을 수 없음`);
         }
     });
     
+    console.log(`[DEBUG] 설정 후 선택된 옵션 개수:`, collaboratorsSelect.selectedOptions.length);
+    
     // 선택된 공동 작업자 표시 업데이트
     updateSelectedCollaborators(formType);
+    
+    // 드롭다운에 사용자가 없는 경우, 사용자 목록을 다시 로드하여 선택 상태 설정
+    if (collaborators.length > 0) {
+        console.log(`[DEBUG] setTimeout으로 updateCollaboratorsDropdown 호출 예정`);
+        setTimeout(() => {
+            console.log(`[DEBUG] setTimeout 실행 - updateCollaboratorsDropdown 호출`);
+            updateCollaboratorsDropdown('', formType);
+        }, 100);
+    }
 }
 
 // 공동 작업자 기능 초기화
 function initializeCollaborators(formType = 'add') {
     const prefix = formType === 'edit' ? 'edit-' : '';
     
+    console.log(`[DEBUG] initializeCollaborators 호출 - formType: ${formType}`);
+    
     loadUsers().then(() => {
+        console.log(`[DEBUG] 사용자 로드 완료, 드롭다운 초기화 시작`);
+        
         // 사용자 로드 완료 후 드롭다운 초기화
         updateCollaboratorsDropdown('', formType);
         setupCollaboratorsSearch(formType);
         setupCollaboratorsSelection(formType);
+        
+        // 수정 모드인 경우, 기존 선택된 값들이 유지되도록 추가 처리
+        if (formType === 'edit') {
+            console.log(`[DEBUG] 수정 모드 - 기존 선택된 값들 유지 처리`);
+            const collaboratorsSelect = document.getElementById(`${prefix}schedule-collaborators`);
+            console.log(`[DEBUG] 수정 모드 select 요소:`, collaboratorsSelect);
+            if (collaboratorsSelect && collaboratorsSelect.selectedOptions.length > 0) {
+                console.log(`[DEBUG] 기존 선택된 옵션이 있음, setTimeout으로 updateSelectedCollaborators 호출 예정`);
+                setTimeout(() => {
+                    console.log(`[DEBUG] setTimeout 실행 - updateSelectedCollaborators 호출`);
+                    updateSelectedCollaborators(formType);
+                }, 200);
+            } else {
+                console.log(`[DEBUG] 기존 선택된 옵션이 없음`);
+            }
+        }
+        
+        console.log(`[DEBUG] initializeCollaborators 완료`);
     });
 }

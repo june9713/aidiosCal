@@ -63,6 +63,83 @@
     min-height: var(--touch-target);
  }
  
+ /* 다중선택 select 요소 스타일 */
+select[multiple] {
+   min-height: 120px;
+   max-height: 200px;
+   overflow-y: auto;
+   user-select: none;
+}
+
+select[multiple] option {
+   padding: 8px 12px;
+   border-bottom: 1px solid #f0f0f0;
+   cursor: pointer;
+   transition: background-color 0.2s;
+   position: relative;
+}
+
+select[multiple] option:hover {
+   background-color: #f8f9fa;
+}
+
+select[multiple] option:checked {
+   background-color: #e3f2fd;
+   color: #1976d2;
+   font-weight: 500;
+}
+
+select[multiple] option:checked::before {
+   content: "✓";
+   position: absolute;
+   left: 4px;
+   color: #1976d2;
+   font-weight: bold;
+}
+
+/* 다중선택 안내 메시지 */
+select[multiple] + .help-text {
+   font-size: 12px;
+   color: #666;
+   margin-top: 4px;
+   font-style: italic;
+}
+ 
+ /* 선택된 공동작업자 표시 스타일 */
+ .selected-collaborator {
+    display: inline-block;
+    background: #e3f2fd;
+    padding: 4px 10px;
+    margin: 3px;
+    border-radius: 16px;
+    font-size: 12px;
+    border: 1px solid #bbdefb;
+    transition: all 0.2s ease;
+ }
+ 
+ .selected-collaborator:hover {
+    background: #bbdefb;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+ }
+ 
+ .selected-collaborator button {
+    background: none;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    margin-left: 5px;
+    padding: 0;
+    font-size: 14px;
+    font-weight: bold;
+    min-height: auto;
+ }
+ 
+ .selected-collaborator button:hover {
+    color: #dc3545;
+    background: none;
+ }
+ 
  button {
     padding: 12px 20px;
     background-color: var(--primary-color);
@@ -1483,6 +1560,43 @@ details[open] .toggle-icon {
  
  .alarm-quick-buttons button:hover {
     background-color: #138496;
+ }
+
+ .due-time-quick-buttons {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+    justify-content: space-between;
+    width: 100%;
+}
+
+ .due-time-quick-buttons button {
+    padding: 6px 10px;
+    font-size: 11px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: #fff3cd;
+    color: #333;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-height: auto;
+    font-weight: normal;
+    flex: 1;
+    min-width: 0;
+    text-align: center;
+}
+
+ .due-time-quick-buttons button:hover {
+    background: #e9ecef;
+    border-color: #adb5bd;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+ }
+
+ .due-time-quick-buttons button:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
  }
  
  /* Scrollbars */

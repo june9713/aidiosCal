@@ -31,14 +31,26 @@ logger.setLevel(logging.DEBUG)
 console_handler = logging.StreamHandler(sys.stdout)
 console_handler.setLevel(logging.DEBUG)
 
-# 로그 포맷 설정
+# 로그 포맷 설정 - 더 상세한 정보 포함
 formatter = logging.Formatter(
-    '%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s'
+    '%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(funcName)s:%(lineno)d - %(message)s'
 )
 console_handler.setFormatter(formatter)
 
 # 핸들러 추가
 logger.addHandler(console_handler)
+
+# 추가: 루트 로거에도 핸들러 추가
+root_logger = logging.getLogger()
+if not root_logger.handlers:
+    root_handler = logging.StreamHandler(sys.stdout)
+    root_handler.setLevel(logging.DEBUG)
+    root_handler.setFormatter(formatter)
+    root_logger.addHandler(root_handler)
+    root_logger.setLevel(logging.DEBUG)
+
+print("🔧 [LOGGING_SETUP] Schedules router logging configured successfully!")
+print("🔧 [LOGGING_SETUP] Root logger also configured for comprehensive logging!")
 
 router = APIRouter()
 
@@ -51,61 +63,185 @@ def create_schedule(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
+    print(f"🚀 [ENTRY_POINT] create_schedule 함수 진입 - 사용자: {current_user.username} (ID: {current_user.id})")
+    print(f"🚀 [ENTRY_POINT] 요청 데이터 타입: {type(schedule)}")
+    print(f"🚀 [ENTRY_POINT] 요청 데이터 내용: {schedule}")
+    
+    # 🔍 추가: 요청 데이터 전체를 문자열로 출력
+    print("🔍 [RAW_DATA] === 요청 데이터 전체 문자열 출력 ===")
+    print(f"🔍 [RAW_DATA] schedule.__dict__: {schedule.__dict__}")
+    print(f"🔍 [RAW_DATA] schedule.model_dump(): {schedule.model_dump()}")
+    print(f"🔍 [RAW_DATA] schedule.model_dump_json(): {schedule.model_dump_json()}")
+    print("🔍 [RAW_DATA] ======================================")
+    
     try:
+        # 1단계: 데이터 변환 및 검증
+        print("📋 [STEP_1] schedule.dict() 호출 시작...")
         schedule_data = schedule.dict()
-        logger.info(f"Creating schedule with data: {schedule_data}")
+        print(f"📋 [STEP_1] 변환된 데이터: {schedule_data}")
+        print(f"📋 [STEP_1] 데이터 타입: {type(schedule_data)}")
+        print(f"📋 [STEP_1] 데이터 키들: {list(schedule_data.keys())}")
         
-        # parent_order 계산 로직 수정
+        # 공동 작업자 정보 추출
+        print("👥 [STEP_1] 공동작업자 정보 추출 시작...")
+        collaborators = schedule_data.pop('collaborators', [])
+        print(f"👥 [STEP_1] 추출된 공동작업자: {collaborators}")
+        print(f"👥 [STEP_1] 공동작업자 타입: {type(collaborators)}")
+        print(f"👥 [STEP_1] 공동작업자 개수: {len(collaborators) if collaborators else 0}")
+        
+        # 🔍 추가: collaborators 필드가 원본 데이터에 있었는지 확인
+        print(f"🔍 [COLLAB_CHECK] 원본 schedule_data에 'collaborators' 키가 있었나요? {'collaborators' in schedule_data}")
+        print(f"🔍 [COLLAB_CHECK] 원본 schedule_data의 모든 키: {list(schedule_data.keys())}")
+        
+        if collaborators:
+            print(f"👥 [STEP_1] 공동작업자 상세 분석:")
+            for i, collab_id in enumerate(collaborators):
+                print(f"   - 공동작업자 {i+1}: ID={collab_id}, 타입={type(collab_id)}")
+                if collab_id == current_user.id:
+                    print(f"   ⚠️ 경고: 자기 자신을 공동작업자로 선택함 (ID: {collab_id})")
+        else:
+            print("⚠️ [COLLAB_WARNING] collaborators 배열이 비어있습니다!")
+            print("⚠️ [COLLAB_WARNING] 이는 다음 중 하나일 수 있습니다:")
+            print("   1. 프론트엔드에서 collaborators를 전송하지 않음")
+            print("   2. Pydantic 모델에서 collaborators 필드가 누락됨")
+            print("   3. 데이터 직렬화 과정에서 문제 발생")
+        
+        # 2단계: parent_order 계산
+        print("👨‍👦 [STEP_2] parent_order 계산 시작...")
         if schedule_data.get("parent_id"):
-            logger.info(f"Parent ID found: {schedule_data['parent_id']}")
-            # 부모 일정의 parent_order 가져오기
+            print(f"👨‍👦 [STEP_2] 부모 ID 발견: {schedule_data['parent_id']}")
             parent_schedule = db.query(Schedule).filter(Schedule.id == schedule_data["parent_id"]).first()
             if parent_schedule:
                 parent_order = parent_schedule.parent_order
-                logger.info(f"Parent's parent_order: {parent_order}")
-                # 같은 부모를 가진 일정들의 최대 parent_order 찾기
+                print(f"👨‍👦 [STEP_2] 부모의 parent_order: {parent_order}")
                 max_order = db.query(func.max(Schedule.parent_order)).filter(
                     Schedule.parent_id == schedule_data["parent_id"]
                 ).scalar() or parent_order
-                logger.info(f"Max parent_order found: {max_order}")
+                print(f"👨‍👦 [STEP_2] 최대 parent_order: {max_order}")
                 schedule_data["parent_order"] = max_order + 1
-                logger.info(f"New parent_order set to: {schedule_data['parent_order']}")
+                print(f"👨‍👦 [STEP_2] 새 parent_order 설정: {schedule_data['parent_order']}")
             else:
-                logger.warning(f"Parent schedule not found for ID: {schedule_data['parent_id']}")
+                print(f"⚠️ [STEP_2] 부모 일정을 찾을 수 없음: {schedule_data['parent_id']}")
                 schedule_data["parent_order"] = 0
         else:
-            logger.info("No parent_id found, setting parent_order to 0")
+            print("👨‍👦 [STEP_2] 부모 ID 없음, parent_order를 0으로 설정")
             schedule_data["parent_order"] = 0
-
-        # 공동 작업자 정보 제거 (Schedule 모델에 직접 저장되지 않음)
-        collaborators = schedule_data.pop('collaborators', [])
+        
+        # 3단계: Schedule 객체 생성
+        print("📝 [STEP_3] Schedule 객체 생성 시작...")
+        print(f"📝 [STEP_3] 최종 schedule_data: {schedule_data}")
+        print(f"📝 [STEP_3] owner_id: {current_user.id}")
         
         db_schedule = Schedule(**schedule_data, owner_id=current_user.id)
-        logger.info(f"Created schedule object: {db_schedule.__dict__}")
+        print(f"📝 [STEP_3] Schedule 객체 생성 완료: {db_schedule}")
+        print(f"📝 [STEP_3] Schedule 객체 속성들: {dir(db_schedule)}")
+        print(f"📝 [STEP_3] Schedule 객체 __dict__: {db_schedule.__dict__}")
         
+        # 4단계: DB에 일정 저장
+        print("💾 [STEP_4] 데이터베이스 저장 시작...")
+        print(f"💾 [STEP_4] db.add() 호출 전...")
         db.add(db_schedule)
+        print(f"💾 [STEP_4] db.add() 완료, db.commit() 호출...")
         db.commit()
+        print(f"💾 [STEP_4] db.commit() 완료!")
+        print(f"💾 [STEP_4] 저장된 일정 ID: {db_schedule.id}")
+        
+        # 5단계: DB에서 새로고침
+        print("🔄 [STEP_5] 데이터베이스에서 새로고침...")
         db.refresh(db_schedule)
+        print(f"🔄 [STEP_5] 새로고침 완료: {db_schedule}")
+        print(f"🔄 [STEP_5] 새로고침 후 ID: {db_schedule.id}")
         
-        # 공동 작업자 정보를 ScheduleShare 테이블에 저장
+        # 6단계: 공동 작업자 처리
         if collaborators:
-            for collaborator_id in collaborators:
-                if collaborator_id != current_user.id:  # 자신은 공동 작업자로 추가하지 않음
-                    schedule_share = ScheduleShare(
-                        schedule_id=db_schedule.id,
-                        shared_with_id=collaborator_id
-                    )
-                    db.add(schedule_share)
+            print(f"👥 [STEP_6] 공동작업자 처리 시작 - {len(collaborators)}명...")
+            added_collaborators = []
+            skipped_collaborators = []
             
-            db.commit()
-            logger.info(f"Added {len(collaborators)} collaborators to schedule {db_schedule.id}")
+            for i, collaborator_id in enumerate(collaborators):
+                print(f"👥 [STEP_6] 공동작업자 {i+1} 처리 중: ID {collaborator_id}")
+                
+                if collaborator_id == current_user.id:
+                    print(f"⚠️ [STEP_6] 자기 자신은 공동작업자로 추가하지 않음: {collaborator_id}")
+                    skipped_collaborators.append(collaborator_id)
+                    continue
+                
+                # 사용자 존재 여부 확인
+                print(f"👥 [STEP_6] 사용자 ID {collaborator_id} 존재 여부 확인...")
+                user_exists = db.query(User).filter(User.id == collaborator_id).first()
+                if not user_exists:
+                    print(f"❌ [STEP_6] 사용자 ID {collaborator_id}를 찾을 수 없음, 건너뜀")
+                    skipped_collaborators.append(collaborator_id)
+                    continue
+                
+                print(f"✅ [STEP_6] 사용자 ID {collaborator_id} 확인됨: {user_exists.username}")
+                
+                # ScheduleShare 객체 생성
+                print(f"👥 [STEP_6] ScheduleShare 객체 생성 중...")
+                schedule_share = ScheduleShare(
+                    schedule_id=db_schedule.id,
+                    shared_with_id=collaborator_id,
+                    role="collaborator",
+                    can_edit=True,
+                    can_delete=True,
+                    can_complete=True,
+                    can_share=True
+                )
+                print(f"👥 [STEP_6] ScheduleShare 객체 생성 완료: {schedule_share}")
+                print(f"👥 [STEP_6] ScheduleShare 객체 속성: {schedule_share.__dict__}")
+                
+                db.add(schedule_share)
+                added_collaborators.append(collaborator_id)
+                print(f"✅ [STEP_6] ScheduleShare 추가 완료: 사용자 ID {collaborator_id}")
+            
+            # ScheduleShare 변경사항 커밋
+            if added_collaborators:
+                print(f"💾 [STEP_6] {len(added_collaborators)}개 ScheduleShare 레코드 커밋 중...")
+                db.commit()
+                print(f"✅ [STEP_6] ScheduleShare 커밋 완료!")
+                print(f"✅ [STEP_6] 추가된 공동작업자: {added_collaborators}")
+                if skipped_collaborators:
+                    print(f"⚠️ [STEP_6] 건너뛴 공동작업자: {skipped_collaborators}")
+            else:
+                print("👥 [STEP_6] 추가할 공동작업자가 없음")
+        else:
+            print("👥 [STEP_6] 공동작업자 없음, ScheduleShare 생성 건너뜀")
         
+        # 7단계: 최종 결과 확인
+        print("🎯 [STEP_7] 최종 결과 확인 중...")
         db.refresh(db_schedule.owner)
-        logger.info(f"Schedule saved to database with ID: {db_schedule.id}")
+        print(f"🎯 [STEP_7] 소유자 정보: {db_schedule.owner.username} (ID: {db_schedule.owner.id})")
+        
+        # ScheduleShare 테이블에서 최종 확인
+        print("🔍 [STEP_7] ScheduleShare 테이블 최종 확인...")
+        final_shares = db.query(ScheduleShare).filter(ScheduleShare.schedule_id == db_schedule.id).all()
+        print(f"🔍 [STEP_7] 최종 ScheduleShare 레코드 수: {len(final_shares)}")
+        
+        for i, share in enumerate(final_shares):
+            print(f"🔍 [STEP_7] Share {i+1}: ID={share.id}, Schedule={share.schedule_id}, User={share.shared_with_id}")
+        
+        # 8단계: 응답 데이터 구성
+        print("📤 [STEP_8] 응답 데이터 구성 중...")
+        print(f"📤 [STEP_8] 최종 db_schedule: {db_schedule}")
+        print(f"📤 [STEP_8] 응답 모델 타입: {ScheduleSchema}")
+        
+        print("🎉 [FINAL] 일정 생성 완료! 응답 반환 중...")
         return db_schedule
+        
     except Exception as e:
-        logger.error(f"Error creating schedule: {str(e)}")
+        print(f"❌ [ERROR] 오류 발생: {str(e)}")
+        print(f"❌ [ERROR] 오류 타입: {type(e).__name__}")
+        import traceback
+        print(f"❌ [ERROR] 전체 스택 트레이스:")
+        traceback.print_exc()
+        
+        logger.error(f"❌ [SCHEDULE_CREATE] Error creating schedule: {str(e)}")
+        logger.error(f"❌ [SCHEDULE_CREATE] Error type: {type(e).__name__}")
+        logger.error(f"❌ [SCHEDULE_CREATE] Full traceback: {traceback.format_exc()}")
+        
         db.rollback()
+        print("🔄 [ERROR] 데이터베이스 롤백 완료")
+        
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Failed to create schedule: {str(e)}"
@@ -247,6 +383,12 @@ def read_schedules(
         Schedule.created_at.desc()
     )
 
+    # shares 정보를 포함하여 로드
+    query = query.options(
+        joinedload(Schedule.owner),
+        joinedload(Schedule.shares).joinedload(ScheduleShare.shared_with)
+    )
+
     schedules = query.offset(skip).limit(limit).all()
     
     logger.info(f"Returning {len(schedules)} schedules for user {current_user.id}")
@@ -278,11 +420,18 @@ def read_schedule(
             )
         ).options(
             joinedload(Schedule.owner),
-            joinedload(Schedule.shares)
+            joinedload(Schedule.shares).joinedload(ScheduleShare.shared_with)
         ).first()
         
         if schedule is None:
             raise HTTPException(status_code=404, detail="Schedule not found")
+        
+        # 디버그 로깅 추가
+        logger.info(f"Schedule {schedule_id} loaded with {len(schedule.shares) if schedule.shares else 0} shares")
+        if schedule.shares:
+            for share in schedule.shares:
+                logger.info(f"Share: schedule_id={share.schedule_id}, shared_with_id={share.shared_with_id}")
+        
         return schedule
     except HTTPException:
         raise
@@ -1142,3 +1291,23 @@ def get_schedule_permissions(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"권한 정보를 가져오는 중 오류가 발생했습니다: {str(e)}"
         )
+
+@router.get("/test-logging")
+def test_logging():
+    """로깅 시스템 테스트용 엔드포인트"""
+    print("🧪 [TEST] 로깅 테스트 엔드포인트 호출됨!")
+    logger.info("🧪 [TEST] Logger를 통한 로그 테스트")
+    logger.warning("🧪 [TEST] Logger를 통한 경고 테스트")
+    logger.error("🧪 [TEST] Logger를 통한 오류 테스트")
+    
+    return {
+        "message": "로깅 테스트 완료",
+        "timestamp": datetime.now().isoformat(),
+        "test_data": {
+            "string": "테스트 문자열",
+            "number": 42,
+            "boolean": True,
+            "list": [1, 2, 3],
+            "dict": {"key": "value"}
+        }
+    }
