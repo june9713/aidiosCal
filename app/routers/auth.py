@@ -4,7 +4,8 @@ from fastapi.routing import APIRoute
 from fastapi.responses import Response, JSONResponse
 from fastapi.exceptions import RequestValidationError
 from sqlalchemy.orm import Session
-from typing import List, Callable
+from sqlalchemy import or_
+from typing import List, Callable, Optional
 from datetime import timedelta
 from pydantic import ValidationError
 import json
@@ -95,12 +96,26 @@ async def register_user(
 async def read_users(
     skip: int = 0,
     limit: int = 100,
+    search: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
     try:
-        print(f"Fetching users list (skip: {skip}, limit: {limit})")
-        users = db.query(User).offset(skip).limit(limit).all()
+        print(f"Fetching users list (skip: {skip}, limit: {limit}, search: {search})")
+        
+        query = db.query(User).filter(User.is_active == True)
+        
+        # 검색어가 있는 경우 필터링
+        if search:
+            search_term = f"%{search}%"
+            query = query.filter(
+                or_(
+                    User.username.ilike(search_term),
+                    User.name.ilike(search_term)
+                )
+            )
+        
+        users = query.offset(skip).limit(limit).all()
         print(f"Found {len(users)} users")
         return users
     except Exception as e:

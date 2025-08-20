@@ -77,12 +77,29 @@ def create_schedule(
             logger.info("No parent_id found, setting parent_order to 0")
             schedule_data["parent_order"] = 0
 
+        # 공동 작업자 정보 제거 (Schedule 모델에 직접 저장되지 않음)
+        collaborators = schedule_data.pop('collaborators', [])
+        
         db_schedule = Schedule(**schedule_data, owner_id=current_user.id)
         logger.info(f"Created schedule object: {db_schedule.__dict__}")
         
         db.add(db_schedule)
         db.commit()
         db.refresh(db_schedule)
+        
+        # 공동 작업자 정보를 ScheduleShare 테이블에 저장
+        if collaborators:
+            for collaborator_id in collaborators:
+                if collaborator_id != current_user.id:  # 자신은 공동 작업자로 추가하지 않음
+                    schedule_share = ScheduleShare(
+                        schedule_id=db_schedule.id,
+                        shared_with_id=collaborator_id
+                    )
+                    db.add(schedule_share)
+            
+            db.commit()
+            logger.info(f"Added {len(collaborators)} collaborators to schedule {db_schedule.id}")
+        
         db.refresh(db_schedule.owner)
         logger.info(f"Schedule saved to database with ID: {db_schedule.id}")
         return db_schedule
