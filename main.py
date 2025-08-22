@@ -3,7 +3,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, Response
 from pathlib import Path
-from app.core.database import engine, Base, get_db
+from app.core.database import engine, init_db, get_db
+team = 'aidios'
+Base , engine = init_db(team)
+# Create database tables
+Base.metadata.create_all(bind=engine)
 from app.routers import auth, schedules, alarms, attachments, projects, quickmemos
 from app.routers.auth import get_current_user
 from app.models.models import Alarm
@@ -66,8 +70,7 @@ def get_terminal_type():
 
 
 logger = logging.getLogger(__name__)
-# Create database tables
-Base.metadata.create_all(bind=engine)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -352,6 +355,9 @@ async def get_server_time():
 
 if __name__ == "__main__":
     # 사용 예시
+
+    
+
     in_vscode = is_running_in_vscode()
     if in_vscode:
         print("VSCode에서 실행 중입니다!")
