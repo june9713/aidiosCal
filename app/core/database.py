@@ -8,10 +8,11 @@ from sqlalchemy.orm import sessionmaker
 
 Base = None
 SessionLocal = None
+engine = None
 
 # 데이터베이스 테이블 생성
 def init_db(team):
-    global Base, SessionLocal
+    global Base, SessionLocal, engine
     """
     데이터베이스 테이블 초기화
     """
@@ -52,7 +53,7 @@ def init_db(team):
         print("error"  , f"Failed to create database tables: {str(e)}")#, exc_info=True)
         raise
 
-    return Base
+    return Base , engine
 
 
 def get_db():

@@ -353,7 +353,7 @@ if __name__ == "__main__":
     # 사용 예시
 
     team = 'aidios'
-    Base = init_db(team)
+    Base , engine = init_db(team)
     # Create database tables
     Base.metadata.create_all(bind=engine)
 
