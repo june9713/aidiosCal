@@ -4,7 +4,15 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, Response
 from pathlib import Path
 from app.core.database import engine, init_db, get_db
-team = 'aidios'
+import sys
+if len(sys.argv) == 1:
+    team = 'aidios'
+    appport = 8123
+else:
+    team = sys.argv[1]
+    appport = int(sys.argv[2])
+
+
 Base , engine = init_db(team)
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -368,4 +376,4 @@ if __name__ == "__main__":
     if in_vscode:
         uvicorn.run(app, host="0.0.0.0", port=8124, log_level="debug",access_log=True )
     else:
-        uvicorn.run(app, host="0.0.0.0", port=8123, log_level="debug",access_log=True )
+        uvicorn.run(app, host="0.0.0.0", port=appport, log_level="debug",access_log=True )
